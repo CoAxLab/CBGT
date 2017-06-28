@@ -1,0 +1,107 @@
+poppaths
+  dict from population name to a list of dimension names, ordered from deepest to shallowest.
+
+popcopylist
+  list of every unique Population
+
+Population
+  dict of properties
+  name: population name (same for all copies)
+  receptors: dict from receptor name to dict of receptor data
+  data: dict from property name to value
+    N: number of cells
+    C:
+    Taum:
+    RestPot:
+    ResetPot:
+    Threshold:
+    RestPot_ca:
+    Alpha_ca:
+    Tau_ca:
+    Eff_ca:
+  path: list of dimension names (same value as from poppaths)
+  pathvals: list of dimension values for a particular population copy
+  uniquename: a unique name for this particular copy of a population
+  targets: a list of tracts
+
+Tract
+  target: the uniquename of the target population
+  name: the name (pathway) of this connection
+  data: a dict of properties
+    TargetReceptor: name of receptor
+    Connectivity: amount of connectivity (meaning varies)
+    MeanEff: efficacy of the connection
+
+Channel
+  dim: name of dimension
+  subchannels: list of subchannels contained within
+  pops: list of populations in this channel
+
+Receptor
+  name: receptor name
+  data: dict of properties
+    Tau:
+    RevPot:
+    FreqExt:
+    FreqExtSD:
+    MeanExtEff:
+    MeanExtCon:
+
+Path
+  src
+  targ
+  name
+  receptor
+  connectivity
+  efficacy
+  STFT
+  STFP
+  preset
+  cmtype
+  conmatrix
+
+Handle
+  name: name of handle
+  targ: name of target population
+  path: list of dimensions for this handle
+  receptor: name of target receptor type
+  connectivity:
+  efficacy:
+  preset:
+  cmtype:
+  conmatrix:
+  targets: list of tracts
+  pathvals: list of dimension values for a particular handle copy
+  frequency: external frequency
+  std_dev: external frequency standard deviation
+
+dims things
+  constructConMatrix
+  constructHandleCopies
+  constructCopies
+  constructPopCopies
+
+list of functions
+  makeChannel
+  makePop
+  makeReceptor
+  makePath
+  camP
+  makeHandle
+  makeEvent
+  constructCopies
+  constructPopPaths
+  constructPopCopies
+  constructConMatrix
+  constructTracts
+  constructConnections
+  constructHandleCopies
+  constructEvents
+  transformScaling
+  printNetData
+  writeCsv
+  writeConf
+  writePro
+  compileAndRun
+  describeBG
+  multichoiceExperiment
