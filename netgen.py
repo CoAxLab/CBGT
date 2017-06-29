@@ -1,98 +1,9 @@
 import random
 from subprocess import call
 
-# class PopChannel:
-#     name = ""
-#     dim = ""
-#     subchannels = []
-#     pops = []
-#
-# class Pop:
-#     name = ""
-#     preset = ""
-#
-# class Connection:
-#     name = ""
-#     source = ""
-#     target = ""
-#     preset = ""
-#     pathways = []
-#     contype = ""
-#     connectivity = []
-#     path = []
-
-
-# break
-
-# class NetPop:
-#     name = ""
-#     targets = []
-#
-# class Target:
-#     targetname = ""
-
-# def printFinal(network):
-#     for popvalue in network:
-#         print(popvalue['name'])
-#         for targvalue in popvalue['targets']:
-#             print("  " + targvalue['targetname'])
-#
-# network = [{'name':'middle', 'targets':[{'targetname':'left'}]}]
-# printFinal(network)
-
-# print(glblpg)
-
-# def gendimadj(dims):
-#     dimadj = {}
-#     for k1, v1 in dims.items():
-#         dimadj[k1] = {}
-#         for k2, v2 in dims.items():
-#             dimadj[k1][k2] = {}
-#             adj = []
-#             for dist1 in range(0, v1):
-#                 adjrow = []
-#                 for dist2 in range(0, v2):
-#                     con = 0
-#                     if k1 != k2:
-#                         con = 1
-#                     if k1 == k2 and dist1 == dist2:
-#                         con = 1
-#                     adjrow.append(con)
-#                 adj.append(adjrow)
-#             dimadj[k1][k2]['syn'] = adj
-#             adj = []
-#             for dist1 in range(0, v1):
-#                 adjrow = []
-#                 for dist2 in range(0, v2):
-#                     con = 0
-#                     if k1 == k2 and dist1 != dist2:
-#                         con = 1
-#                     adjrow.append(con)
-#                 adj.append(adjrow)
-#             dimadj[k1][k2]['anti'] = adj
-#     return dimadj
-#
-# dimadj = gendimadj(dims)
-#
-# def printDimAdj(dimadj):
-#     for k1, v1 in dimadj.items():
-#         for k2, adj in v1.items():
-#             print(k1)
-#             print(k2)
-#             for row in adj['syn']:
-#                 print(row)
-#
-# printDimAdj(dimadj)
-# print(dimadj)
-
-# def lastCommon(path1, path2):
-#     result = -1
-#     while result + 1 < len(path1) and result + 1 < len(path2):
-#         if path1[result + 1] == path2[result + 1]:
-#             result = result + 1
-#         else:
-#             return result
-#     return result
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
 
 def makeChannel(dim='brain', pops=[], subchannels=[]):
     return {'dim': dim,
@@ -127,7 +38,7 @@ def makeReceptor(name, preset={}, preset_overrides={}):
 
 
 def makePath(src, targ, receptor, preset=['all'], connectivity=1, efficacy=1,
-        STFT=0, STFP=0, name='', cmtype='con', conmatrix=[]):
+             STFT=0, STFP=0, name='', cmtype='con', conmatrix=[]):
     return {'src': src,
             'targ': targ,
             'name': name,
@@ -142,7 +53,7 @@ def makePath(src, targ, receptor, preset=['all'], connectivity=1, efficacy=1,
 
 
 def camP(connections, src, targ, receptor, preset=['all'], connectivity=1,
-        efficacy=1, STFT=0, STFP=0, name='', cmtype='con', conmatrix=[]):
+         efficacy=1, STFT=0, STFP=0, name='', cmtype='con', conmatrix=[]):
     maxlen = 1
     if type(receptor) is list:
         maxlen = len(receptor)
@@ -179,6 +90,14 @@ def makeHandle(name, targ, path, receptor, con, eff, preset=['syn'], conmatrix=[
             'preset': preset,
             'cmtype': 'con',
             'conmatrix': conmatrix}
+
+
+def makeHandleEvent(label, time, hname, hpath, freq):
+    return {'label': label,
+            'time': time,
+            'hname': hname,
+            'hpath': hpath,
+            'freq': freq}
 
 
 def makeEvent(time, etype, label='', pop='', receptor='', freq=0):
@@ -308,9 +227,9 @@ def constructConnections(dims, connections, poppaths, popcopylist):
                 constructTracts(con, source, popcopylist)
 
 
-def constructHandleCopies(dims, handlelist, poppaths, popcopylist):
+def constructHandleCopies(dims, handletypes, poppaths, popcopylist):
     handles = []
-    for handle in handlelist:
+    for handle in handletypes:
         constructConMatrix(
             dims, handle, handle['path'], poppaths[handle['targ']])
         for pathval in constructCopies(dims, handle['path']):
@@ -331,29 +250,18 @@ def constructHandleCopies(dims, handlelist, poppaths, popcopylist):
     return handles
 
 
-def constructEvents(time, label, hname, hpath, freq, handles, eventlist):
+def constructEvents(handlevent, handles, eventlist):
     for handle in handles:
-        if handle['name'] == hname:
+        if handle['name'] == handlevent['hname']:
             valid = True
-            for spec, val in zip(hpath, handle['pathvals']):
+            for spec, val in zip(handlevent['hpath'], handle['pathvals']):
                 if spec != -1 and spec != val:
                     valid = False
             if valid:
                 for tract in handle['targets']:
-                    event = makeEvent(time, 'ChangeExtFreq', label,
-                                      tract['target'], tract['data']['TargetReceptor'], freq)
+                    event = makeEvent(handlevent['time'], 'ChangeExtFreq', handlevent['label'],
+                                      tract['target'], tract['data']['TargetReceptor'], handlevent['freq'])
                     eventlist.append(event)
-
-def transformScaling(scale, popcopylist, connections):
-    for pop in popcopylist:
-        pop['data']['N'] *= scale
-    for path in connections:
-        # scale C and then E only if needed
-        # maybe some other form of balancing is better
-        path['connectivity'] /= scale
-        if path['connectivity'] > 1:
-            path['efficacy'] *= path['connectivity']
-            path['connectivity'] = 1
 
 
 def printNetData(poppaths, popcopylist, handles):
@@ -436,27 +344,31 @@ def compileAndRun(trials=1):
         call('./sim -ns -n' + str(trial), shell=True, cwd='autotest')
 
 
+def getCellDefaults():
+    return {'N': 250,
+            'C': 0.5,
+            'Taum': 20,
+            'RestPot': -70,
+            'ResetPot': -55,
+            'Threshold': -50,
+
+            'RestPot_ca': -85,
+            'Alpha_ca': 0.5,
+            'Tau_ca': 80,
+            'Eff_ca': 0.0,
+
+            'tauhm': 20,
+            'tauhp': 100,
+            'V_h': -60,
+            'V_T': 120,
+            'g_T': 0}
+
+
 def describeBG():
     c = []
     h = []
 
-    cd_pre = {'N': 250,
-              'C': 0.5,
-              'Taum': 20,
-              'RestPot': -70,
-              'ResetPot': -55,
-              'Threshold': -50,
-
-              'RestPot_ca': -85,
-              'Alpha_ca': 0.5,
-              'Tau_ca': 80,
-              'Eff_ca': 0.0,
-
-              'tauhm': 20,
-              'tauhp': 100,
-              'V_h': -60,
-              'V_T': 120,
-              'g_T': 0}
+    cd_pre = getCellDefaults()
 
     GABA = makeReceptor('GABA', {'Tau': 5, 'RevPot': -70})
     AMPA = makeReceptor('AMPA', {'Tau': 2, 'RevPot': 0})
@@ -473,15 +385,15 @@ def describeBG():
     camP(c, 'GPe', 'GPe', 'GABA', ['syn'], 0.05, 1.5)
     camP(c, 'GPe', 'STNE', 'GABA', ['syn'], 0.02, 0.6)
     camP(c, 'GPe', 'SNr', 'GABA', ['syn'], 1, 0.08)
-    camP(c, 'GPe', 'CD', 'GABA', ['syn'], 1, 0.03)
-    CD = makePop("CD", [GABA, [AMPA, 800, 4, 1], NMDA], cd_pre)
-    camP(c, 'CD', 'CD', 'GABA', ['syn'], 1, 1)
-    camP(c, 'CD', 'SNr', 'GABA', ['syn'], 1, 3)
-    camP(c, 'CD', 'GPe', 'GABA', ['syn'], 1, 4)
+    camP(c, 'GPe', 'STR', 'GABA', ['syn'], 1, 0.03, name='arkipallidal')
+    STR = makePop("STR", [GABA, [AMPA, 800, 4, 1], NMDA], cd_pre)
+    camP(c, 'STR', 'STR', 'GABA', ['syn'], 1, 1)
+    camP(c, 'STR', 'SNr', 'GABA', ['syn'], 1, 3, name='direct')
+    camP(c, 'STR', 'GPe', 'GABA', ['syn'], 1, 4)
     LIP = makePop("LIP", [GABA, [AMPA, 800, 2.1, 3],
                           NMDA], cd_pre, {'N': 240})
     camP(c, 'LIP', 'E', 'AMPA', ['syn'], 1, 3.5)
-    camP(c, 'LIP', 'CD', 'AMPA', ['syn'], 1, 3.0)
+    camP(c, 'LIP', 'STR', 'AMPA', ['syn'], 1, 3.0)
     camP(c, 'LIP', 'LIPb', ['AMPA', 'NMDA'], ['all'], 1, [0.05, 0.165])
     camP(c, 'LIP', 'LIP', ['AMPA', 'NMDA'], ['syn'], 1, [0.085, 0.2805])
     camP(c, 'LIP', 'LIP', ['AMPA', 'NMDA'], ['anti'], 1, [0.043825, 0.14462])
@@ -492,7 +404,7 @@ def describeBG():
     camP(c, 'E', 'I0', 'NMDA', ['all'], 1, 0.7, 1000, 0.15)
     camP(c, 'E', 'LIPI', 'NMDA', ['all'], 1, 0.15)
     camP(c, 'E', 'LIP', 'NMDA', ['all'], 1, 0.05)
-    action_channel = makeChannel('choices', [SNr, STNE, GPe, CD, LIP, E])
+    action_channel = makeChannel('choices', [SNr, STNE, GPe, STR, LIP, E])
 
     I0 = makePop("I0", [GABA, [AMPA, 800, 2, 1.6], NMDA],
                  cd_pre, {'C': 0.2, 'Taum': 10})
@@ -512,48 +424,120 @@ def describeBG():
     return (brain, c, h)
 
 
-def multichoiceExperiment(choices=1, trials=0):
-    brain, connections, handlelist = describeBG()
-    handlelist.append(makeHandle('sensory', 'LIP', ['choices'], 'AMPA', 800, 2.1))
-    handlelist.append(makeHandle('cancel', 'STNE', ['choices'], 'AMPA', 800, 1.6))
+def describeSubcircuit():
+    c = []
+    h = []
 
-    dims = {'brain': 1, 'choices': choices}
+    cd_pre = getCellDefaults()
 
+    GABA = makeReceptor('GABA', {'Tau': 5, 'RevPot': -70})
+    AMPA = makeReceptor('AMPA', {'Tau': 2, 'RevPot': 0})
+    NMDA = makeReceptor('NMDA', {'Tau': 100, 'RevPot': 0})
+
+    STNE = makePop('STNE', [GABA, [AMPA, 800, 1, 4], NMDA],
+                   cd_pre, {'N': 2500, 'g_T': 0.06})
+    camP(c, 'STNE', 'GPeI', 'AMPA', ['syn'], 0.05, 0.05)
+    camP(c, 'STNE', 'GPeI', 'NMDA', ['syn'], 0.05, 10)
+    GPeI = makePop('GPeI', [[GABA, 2500, 22, 1], [
+                   AMPA, 800, 1.6, 5], NMDA], cd_pre, {'N': 2500, 'g_T': 0.06})
+    camP(c, 'GPeI', 'GPeI', 'GABA', ['syn'], 0.05, 0.02)
+    camP(c, 'GPeI', 'STNE', 'GABA', ['syn'], 0.02, 10)
+    brain = makeChannel('brain', [GPeI, STNE])
+
+    return (brain, c, h)
+
+
+def mcInfo():
+    dims = {'brain': 1, 'choices': 2}
+
+    hts = []
+    hts.append(makeHandle('sensory', 'LIP', ['choices'], 'AMPA', 800, 2.1))
+    hts.append(makeHandle('cancel', 'STNE', ['choices'], 'AMPA', 800, 1.6))
+
+    hes = []
+    hes.append(makeHandleEvent('reset', 0, 'sensory', [], 3))
+    hes.append(makeHandleEvent('wrong stimulus', 100, 'sensory', [], 3.0372))
+    hes.append(makeHandleEvent('right stimulus', 100, 'sensory', [0], 3.0884))
+
+    timelimit = 800
+
+    return (dims, hts, hes, timelimit)
+
+
+def modifyNetwork(popcopylist, connections, **kwargs):
+    for key, value in kwargs.items():
+        if key == 'popscale':
+            for pop in popcopylist:
+                pop['data']['N'] *= value
+            for path in connections:
+                # scale C and then E only if needed
+                # maybe some other form of balancing is better
+                path['connectivity'] /= value
+                if path['connectivity'] > 1:
+                    path['efficacy'] *= path['connectivity']
+                    path['connectivity'] = 1
+        for path in connections:
+            if key == path['name']:
+                path['efficacy'] *= value
+
+
+def configureExperiment():
+    # get network description
+    brain, connections, handletypes = describeBG()
+
+    # get description relevant to this experiment and merge
+    dims, hts, handleeventlist, timelimit = mcInfo()
+    for ht in hts:
+        handletypes.append(ht)
+
+    # create network populations
     poppaths = constructPopPaths(brain)
     popcopylist = constructPopCopies(dims, brain, poppaths)
-    transformScaling(1, popcopylist, connections)
 
-    handles = constructHandleCopies(dims, handlelist, poppaths, popcopylist)
+    # modify network
+    modifyNetwork(popcopylist, connections, popscale=0.1, arkipallidal=1)
+
+    # create all network connections
+    handles = constructHandleCopies(dims, handletypes, poppaths, popcopylist)
     constructConnections(dims, connections, poppaths, popcopylist)
 
+    # create events from handleevents
     eventlist = []
-    constructEvents(0, 'reset', 'sensory', [], 3, handles, eventlist)
-    constructEvents(100, 'wrong stimulus', 'sensory',
-                    [], 3.0372, handles, eventlist)
-    constructEvents(100, 'right stimulus', 'sensory',
-                    [0], 3.0884, handles, eventlist)
-    # constructEvents(550, 'abort signal', 'cancel',
-    #                 [0], 20, handles, eventlist)
-    eventlist.append(makeEvent(800, 'EndTrial'))
+    for he in handleeventlist:
+        constructEvents(he, handles, eventlist)
+    eventlist.append(makeEvent(timelimit, 'EndTrial'))
 
+    # write files
     printNetData(poppaths, popcopylist, handles)
     writeCsv(popcopylist)
     writeConf(popcopylist)
     writePro(eventlist)
 
-    compileAndRun(trials)
+def readTrialResult(trial):
+    f = open('autotest/popfreqs' + str(trial) + '.dat',"r")
+    columns = []
+    rawdata = []
+    lines = f.readlines()
+    for i in range(len(lines)):
+        if i == 0:
+            columns = lines[i].strip().split("\t")
+            for colnum in range(len(columns)):
+                rawdata.append([])
+        if i > 0:
+            data = lines[i].strip().split("\t")
+            for colnum, val in zip(range(len(columns)),data):
+                rawdata[colnum].append(val)
+    labeled = {}
+    for colnum in range(len(columns)):
+        labeled[columns[colnum]] = np.array(rawdata[colnum], dtype='float32')
 
+    return(pd.DataFrame(labeled))
 
-# STNE = makePop('STNE', [GABA, [AMPA, 800, 1, 4], NMDA], cd_pre, {'N':2500, 'g_T':0.06})
-# camP(c,'STNE', 'GPeI', 'AMPA', ['syn'], 0.05, 0.05)
-# camP(c,'STNE', 'GPeI', 'NMDA', ['syn'], 0.05, 10)
-# GPeI = makePop('GPeI', [[GABA,2500,22,1], [AMPA, 800, 1.6, 5], NMDA], cd_pre, {'N':2500, 'g_T':0.06})
-# camP(c,'GPeI', 'GPeI', 'GABA', ['syn'], 0.05, 0.02)
-# camP(c,'GPeI', 'STNE', 'GABA', ['syn'], 0.02, 10)
-# brain = makeChannel('brain', [GPeI, STNE])
+def readAllTrialResults(trials):
+    frames = []
+    for trial in range(trials):
+        frames.append(readTrialResult(trial))
 
-
-# for row in bg_in['conmatrix']:
-#     print(row)
-
-multichoiceExperiment(2, 1)
+configureExperiment()
+compileAndRun(0)
+readAllTrialResults(0)
