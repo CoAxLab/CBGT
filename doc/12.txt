@@ -1,0 +1,10 @@
+# poptraces#.dat
+
+Output file containing traces of individual neurons from each population. The # is the current trial number.  
+
+
+  
+
+
+Each row is one point in time. The first column is the time (in ms), and then additional columns are the voltage (mV) of each neuron. The neurons are ordered by population ID and then by trace number (so for example pop0t0, pop0t1, pop1t0, pop1t1). The number of traces per population is given by NumberofTraces which is set to 0 by default, in which case this file is not generated. The number of traces is set by the -t# flag.  
+

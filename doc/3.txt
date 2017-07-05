@@ -1,0 +1,62 @@
+# External Input Random Walk
+
+External input is modeled as a random walk with a given mean (.FreqExt) and standard deviation (.FreqExtSD). Each time step, a target value is picked according to that distribution, and then the external frequency from the previous time step (last_freq) is moved 1-FEDec proportion of the way to the target to give the new frequency (freq), where FEDec is .FreqExtDecay (default 0.999).  
+
+
+  
+
+
+This means the long-term standard deviation of the external input is actually
+
+RealStDev = FEStDev * sqrt((1-FEDec)/(FEDec+1))  
+
+
+Which was derived from this equality of variances  
+
+
+RealStDev^2 = (RealStDev * FEDec)^2 + (FEStDev * (1-FEDec))^2  
+
+
+  
+
+
+Given a real recording of external input, here's how to parameterize the program to generate a similar random walk:  
+
+
+  1. Choose your time step size (default .1 ms)  
+
+  2. Bin the external input so determine the frequency at each time step  
+
+  3. For each consecutive pair of values, make a scatterplot of (f(t), f(t+1)-f(t))  
+
+  4. Calculate the least-squares regression line y = mx+b  
+
+  5. The x-intercept (-b/m) gives the mean external frequency (.FreqExt)  
+
+  6. The slope plus 1 gives the value of the decay time constant (FreqExtDecay = m+1)  
+
+  7. Determine the residuals from the regression  
+
+  8. Divide the residuals by (1-FEDec), square them, average them, and then square root to get .FreqExtSD  
+
+
+
+
+Alternatively, if FreqExtDecay is fixed to 0.999:  
+
+
+  1. The value of .FreqExt is just the mean recorded frequency  
+
+  2. Take the standard deviation of the bin values and multiply by 1/sqrt(0.001/1.999) = 44.71 to get .FreqExtSD  
+
+
+
+
+Might need to be adjusted since the program repeats the process if the result &lt; 0, so the final frequencies aren't quite normal (they are truncated). Works as long as the frequencies are high.  
+
+
+  
+
+
+In order to adjust time step size (example: multiply dt by 3), then FEDec = FEDec ^ 3, and FEStDev needs to be adjusted so that the RealStDev remains unchanged.  
+

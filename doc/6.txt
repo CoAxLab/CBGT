@@ -1,0 +1,72 @@
+# int SaveTraces()
+
+This function saves trace data to poptraces#.dat as determined by command line flags. See the "poptraces#.dat" note for details on formatting.  
+
+
+  
+
+
+If NumberofTraces == 0 (which is the default) then this method does nothing. Otherwise is selects the first NumberofTraces neurons from each population and writes each of their voltages on the current line of the file. (Although the code calculates the voltages truncated to the cutoff voltage, it actually just writes the raw voltages.)  
+
+
+  
+
+
+* * *
+
+  
+
+
+int NumberofTraces=0;  
+
+
+  
+
+
+* * *
+
+  
+
+
+int SaveTraces() {   
+int i, p, r;   
+static int FlagInit = 1;   
+static FILE *devtraces;   
+static int lasttrial = 0;   
+char TempName[100];   
+float Vaux;   
+  
+if (NumberofTraces == 0) return 1;   
+  
+if (FlagInit || (lasttrial != CurrentTrial)) {   
+if (lasttrial != CurrentTrial) {   
+fclose(devtraces);   
+lasttrial = CurrentTrial;   
+}   
+  
+sprintf(TempName, "poptraces%d.dat", Trialnumber);   
+devtraces = fopen(TempName, "w");   
+if (devtraces == NULL) return 0;   
+FlagInit = 0;   
+}   
+  
+fprintf(devtraces, "%f\t", Time);   
+for (p = 0; p &lt; Npop; p++) {   
+for (i = 0; i &lt; NumberofTraces; i++) {   
+Vaux = Pop[p].Cell[i].V;   
+if (Vaux &gt; Pop[p].Cell[i].Threshold) Vaux = Pop[p].Cell[i].Threshold;   
+  
+fprintf(devtraces, "%f\t", Pop[p].Cell[i].V);   
+// for (r=0;r&lt;Pop[p].Cell[i].Nreceptors;r++) {   
+// if (Pop[p].Cell[i].MgFlag[r]) {   
+// fprintf(devtraces,"%f\t",Pop[p].Cell[i].LS[r]); //   
+// /(1.+exp(-0.062*Vaux)/3.57)); mg block now not included   
+// } else {   
+// fprintf(devtraces,"%f\t",Pop[p].Cell[i].LS[r]);   
+// }   
+// }   
+}   
+}   
+fprintf(devtraces, "\n");   
+}  
+

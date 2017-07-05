@@ -1,0 +1,469 @@
+# int GenerateNetwork()
+
+This function takes the large-scale description of the network which was created by DescribeNetwork() and generates the final network in complete detail (for example, takes the connectivity values from the description and uses that to actually assign synapses between individual neurons).  
+
+
+  
+
+
+Each population contains a list of its cells and circular buffers of spike data. Each cell has a list of properties (for cell/membrane properties and for each of its receptor types) and a list of axonals (Synapses). Each synapse has a target population/neuron, its efficacy value, and short-term depression/facilitation properties.  
+
+
+  
+
+
+Within each Population:  
+
+
+.NTableofSpikes[]
+
+is a 1-row circular buffer that contains the total number of spikes for that population at each time step  
+
+
+.TableofSpikes[][]
+
+is a multi-row circular buffer in which a column contains the IDs of all of that population's spiking neurons for that time step. The corresponding value of .NTableofSpikes indicates how many rows of that column are filled.  
+
+
+.CTableofSpikes
+
+is the current location in the circular buffers.  
+
+
+.DTableofSpikes
+
+is the delayed location in the circular buffers.  
+
+
+  
+
+
+The difference between .CTableofSpikes and .DTableofSpikes is governed by global variable delayindt which is 2 by default, and since dt is 0.1 ms by default, the default transmission delay is 0.2 ms.  
+
+
+  
+
+
+Each cell has parameters for:  
+
+
+  * Each of its receptor types, including parameters for external input  
+
+  * cell potential, thresholds, and membrane parameters  
+
+
+
+
+Each synapse has parameters for:  
+
+
+  * Target population/neuron  
+
+  * Efficacy  
+
+  * conductance during last spike  
+
+  * target receptor type  
+
+  * values for short-term depression and short-term facilitation  
+
+
+
+
+  
+
+
+The GenerateNetwork() function is relatively straightforward, looping over populations, then cells, then connections for those cells.  
+
+
+  
+
+
+  1. For each population
+    1. For each receptor type  
+
+      1. Calculate the aymptotic mu (.MeanExtMuS) and sigma (.MeanExtSigmaS) for external conductances  
+
+      2. Calculate .FreqExtDecay (decay factor of the external noise, set to 0.999). Also calculate .FreqExtNorm (normalization factor for the memory of the external noise), and .FreqExtMem (memory in the external noise) although these two values are not ever used.  
+
+    2. Allocate memory for all neurons  
+
+    3. Initialize spike tables  
+
+    4. For each neuron  
+
+      1. Copy over all of the cellular properties from the population description to the neuron itself  
+
+      2. For each receptor type  
+
+        1. Copy over receptor properties from the pop desc to the neuron itself  
+
+        2. Determine the external efficacy from a (truncated) normal distribution according to the population mean and standard deviation of external efficacy  
+
+        3. Calculate .ExtMuS .ExtSigmaS from this efficacy and set .ExtS to 0.   
+
+      3. Initalize cellular voltages and refractory states  
+
+      4. For each target population (generate axonal tree)  
+
+        1. For each target neuron in the target population  
+
+          1. Prevent self-loops by skipping situations where the neuron is the same as the target neuron  
+
+          2. If a connection is randomly formed (.connectivity is the percentage of possible connections which are formed)  
+
+            1. Determine the efficacy of this connection according to a truncated normal distribution.  
+
+            2. Copy over synapse all parameters to temporary arrays  
+
+      5. For each synapse of the neuron  
+
+        1. Copy over all synapse parameters from temporary arrays to the Synapses themselves  
+
+
+
+
+  
+
+
+* * *
+
+  
+
+
+#define MAXTN 10000 // max number of target neurons   
+  
+// types of receptors   
+  
+#define MAXRECEPTORS 3   
+  
+#define AMPA 0   
+#define GABA 1   
+#define NMDA 2   
+  
+// =============================================================   
+// Structures for the simulation   
+  
+// --------------------- SYNAPSE structure ---------------------   
+  
+typedef struct {   
+int TargetPop;   
+int TargetNeuron;   
+float Efficacy; // change in the conductance due to a single spike (nS) (hence it is always positive, IPSP come out from rev pots)   
+float LastConductance; // synaptic conductance when the last spike was emitted (useful for NMDA saturation), -1 if not NMDA (and hence no saturation)   
+int TargetReceptor; // 0=AMPA, 1=NMDA, 2=GABA   
+//Parameters and variables for the short term depression   
+float D; // The fraction of available vesicle.   
+float pv; // Each spike reduce D by the factor pv.   
+float tauD; // The time constant for the speed of D recovery.   
+  
+//Parameters and variables for the short term facilitation   
+float F; // The fraction of available vesicle.   
+float Fp; // Each spike increase F by the factor Fp.   
+float tauF; // The time constant for the speed of F decrease.   
+  
+} Synapse;   
+  
+// --------------------- NEURON structure -----------------------   
+  
+  
+typedef struct {   
+  
+// outputs   
+  
+int Naxonals; // axonal tree (total number of synapses on the axon)   
+Synapse *Axonals;   
+  
+// inputs   
+  
+int Nreceptors;   
+float Tau[MAXRECEPTORS]; // tau for each conductance   
+float LS[MAXRECEPTORS]; // total conductance for internal inputs (spikes generated by the network)   
+float RevPots[MAXRECEPTORS]; // reversal potentials   
+int MgFlag[MAXRECEPTORS]; // 1 is magnesium block is active, 0 otherwise   
+  
+// external gaussian inputs for each receptor (to be added to S at each time step)   
+float ExtS[MAXRECEPTORS]; // nS   
+  
+float ExtMuS[MAXRECEPTORS]; // nS/s   
+float ExtSigmaS[MAXRECEPTORS]; // nS/s^2   
+  
+// here I should consider also the external inputs!!!   
+  
+// dynamic variables   
+  
+float V;   
+int RefrState; // Refractory state counter   
+float C; // capacitance in nF   
+float Taum; // membrane time constant   
+float RestPot; // Resting potential   
+float ResetPot; // reset potential   
+float Threshold; // threhsold   
+  
+// Spike-frequency adaptation.   
+// The properties of calcium-activated potassium current I   
+  
+float Ca; //Concentration of Ca ions   
+float Vk; // resting potential   
+float alpha_ca; // Amount of increment of [Ca] with each spike discharge. (muM)   
+float tau_ca; // time constant   
+float g_ahp; // efficacy   
+  
+// the times of the last two spikes   
+float TimeLastSpike; // time of the last emitted spike (for NMDA saturation)   
+float PTimeLastSpike;   
+  
+  
+  
+//Anomalous delayed rectifier (ADR). Simulating the up and down state in striatal neurons.   
+float g_adr_max; //Maximun value of the g   
+float Vadr_h; //Potential for g_adr=0.5g_adr_max   
+float Vadr_s; //Slop of g_adr at Vadr_h, defining how sharp the shape of g_ard is.   
+float ADRRevPot; //reverse potential for ADR.   
+float g_k_max; // Maximun outward rectifying current   
+float Vk_h; //Potential for g_k=0.5g_k_max   
+float Vk_s; //Slop of g_k at Vk_h, defining how sharp the shape of g_k is.   
+float tau_k_max; //maximum value of tau_k   
+float n_k; // gating variable for outward rectifying K channel;   
+  
+float tauhm;   
+float tauhp;   
+float V_T;   
+float V_h;   
+float g_T;   
+float h; // gating variable for burst;   
+} Neuron;   
+  
+  
+  
+// ------------------- Population structure ---------------------   
+#define MAXDELAYINDT 50   
+#define MAXSPIKESINDT 2000   
+  
+typedef struct {   
+char Label[100];   
+  
+int Ncells;   
+Neuron *Cell;   
+  
+// Table of spikes emitted by the neurons of this population   
+int CTableofSpikes; // pointer where we are (time t)   
+int DTableofSpikes; // pointer to the t-delay   
+int NTableofSpikes[MAXDELAYINDT];   
+int TableofSpikes[MAXDELAYINDT][MAXSPIKESINDT];   
+  
+} Population;   
+  
+#define MAXP 15   
+#define MAXEXTMEM 20   
+  
+int Npop;   
+Population Pop[MAXP];   
+  
+
+
+* * *
+
+  
+
+
+// ======================================================================================   
+// GenerateNetwork()   
+//   
+// Generates all the structures which are needed to run the simulation   
+// on the basis of PopD structures. It also allocates the memory for the   
+// network. PopD is initialized in DescribeNetwork.   
+// ======================================================================================   
+  
+int GenerateNetwork() {   
+int p, i, j, r, tp, tpi, tn, k, rd, na;   
+int ni[MAXTN], tpni[MAXTN], trni[MAXTN];   
+float eff[MAXTN], ts[MAXTN], timets[MAXTN], D[MAXTN], pv[MAXTN], tauD[MAXTN],   
+F[MAXTN], Fp[MAXTN], tauF[MAXTN];   
+float efficacy;   
+  
+if (flagverbose) {   
+report("\nGenerating network...\n");   
+}   
+  
+dt = .1;   
+delayindt = 2;   
+  
+// loop over all the populations   
+for (p = 0; p &lt; Npop; p++) {   
+strcpy(Pop[p].Label, PopD[p].Label);   
+if (flagverbose) {   
+report("Population %2d: %s\n", p, Pop[p].Label);   
+}   
+  
+for (rd = 0; rd &lt; PopD[p].Nreceptors; rd++) {   
+// external input: compute first the asymptoic mu and sigma (m,s in nphys   
+// notation) of the conductances   
+// do{efficacy=(gasdev()*PopD[p].ExtEffSD[rd])+PopD[p].MeanExtEff[rd];}while(efficacy&lt;0);   
+efficacy = PopD[p].MeanExtEff[rd];   
+PopD[p].MeanExtMuS[rd] = PopD[p].FreqExt[rd] * .001 * efficacy *   
+PopD[p].MeanExtCon[rd] * PopD[p].Tau[rd];   
+PopD[p].MeanExtSigmaS[rd] =   
+sqrt(PopD[p].Tau[rd] * .5 * PopD[p].FreqExt[rd] * .001 * efficacy *   
+efficacy * PopD[p].MeanExtCon[rd]);   
+PopD[p].FreqExtDecay[rd] = 0.999;   
+PopD[p].FreqExtNorm[rd] =   
+PopD[p].FreqExtDecay[rd] / (1 - PopD[p].FreqExtDecay[rd]);   
+PopD[p].FreqExtMem[rd] = PopD[p].MeanExtEff[rd] * PopD[p].FreqExtNorm[rd];   
+report("Pop %d Conductance: %d m=%f nS s=%f nS\n", p, rd,   
+PopD[p].MeanExtMuS[rd], PopD[p].MeanExtSigmaS[rd]);   
+}   
+  
+// allocate memory for all neurons   
+Pop[p].Ncells = PopD[p].Ncells;   
+if (flagverbose) {   
+report(" \- Number of cells: %d\n", Pop[p].Ncells);   
+}   
+Pop[p].Cell = (Neuron *)calloc(Pop[p].Ncells, sizeof(Neuron));   
+  
+// init auxiliary variables like the tables of spikes   
+if (delayindt &gt; MAXDELAYINDT) {   
+printf("ERROR: delay too long. Increase MAXDELAYINDT and recompile\n");   
+return -1;   
+}   
+Pop[p].CTableofSpikes = delayindt;   
+Pop[p].DTableofSpikes = 0;   
+for (k = 0; k &lt; MAXDELAYINDT; k++) {   
+Pop[p].NTableofSpikes[k] = 0;   
+}   
+  
+// generate neurons and their axonal trees   
+for (i = 0; i &lt; Pop[p].Ncells; i++) {   
+// single neuron parameters   
+Pop[p].Cell[i].Taum = PopD[p].Taum;   
+Pop[p].Cell[i].ResetPot = PopD[p].ResetPot;   
+Pop[p].Cell[i].C = PopD[p].C;   
+Pop[p].Cell[i].RestPot = PopD[p].RestPot;   
+Pop[p].Cell[i].Threshold = PopD[p].Threshold;   
+Pop[p].Cell[i].Vk = PopD[p].Vk;   
+Pop[p].Cell[i].alpha_ca = PopD[p].alpha_ca;   
+Pop[p].Cell[i].tau_ca = PopD[p].tau_ca;   
+Pop[p].Cell[i].g_ahp = PopD[p].g_ahp;   
+Pop[p].Cell[i].g_adr_max = PopD[p].g_adr_max;   
+Pop[p].Cell[i].Vadr_h = PopD[p].Vadr_h;   
+Pop[p].Cell[i].Vadr_s = PopD[p].Vadr_s;   
+Pop[p].Cell[i].ADRRevPot = PopD[p].ADRRevPot;   
+Pop[p].Cell[i].g_k_max = PopD[p].g_k_max;   
+Pop[p].Cell[i].Vk_h = PopD[p].Vk_h;   
+Pop[p].Cell[i].Vk_s = PopD[p].Vk_s;   
+Pop[p].Cell[i].tau_k_max = PopD[p].tau_k_max;   
+Pop[p].Cell[i].n_k = 0;   
+  
+Pop[p].Cell[i].tauhm = PopD[p].tauhm;   
+Pop[p].Cell[i].tauhp = PopD[p].tauhp;   
+Pop[p].Cell[i].V_h = PopD[p].V_h;   
+Pop[p].Cell[i].V_T = PopD[p].V_T;   
+Pop[p].Cell[i].g_T = PopD[p].g_T;   
+Pop[p].Cell[i].h = 1.0;   
+// receptors   
+Pop[p].Cell[i].Nreceptors = PopD[p].Nreceptors;   
+for (r = 0; r &lt; Pop[p].Cell[i].Nreceptors; r++) {   
+// parameters (simply copy if the network is homoegeneous)   
+Pop[p].Cell[i].Tau[r] = PopD[p].Tau[r];   
+Pop[p].Cell[i].RevPots[r] = PopD[p].RevPots[r];   
+Pop[p].Cell[i].MgFlag[r] = PopD[p].MgFlag[r]; // magnesium block   
+// init   
+Pop[p].Cell[i].LS[r] = 0.;   
+  
+// external input   
+do {   
+efficacy = (gasdev() * PopD[p].ExtEffSD[r]) + PopD[p].MeanExtEff[r];   
+} while (efficacy &lt; 0);   
+Pop[p].Cell[i].ExtMuS[r] = PopD[p].FreqExt[r] * .001 * efficacy *   
+PopD[p].MeanExtCon[r] * PopD[p].Tau[r];   
+Pop[p].Cell[i].ExtSigmaS[r] =   
+sqrt(PopD[p].Tau[r] * .5 * PopD[p].FreqExt[r] * .001 * efficacy *   
+efficacy * PopD[p].MeanExtCon[r]);   
+// if(r==0)printf("%f\n",Pop[p].Cell[i].ExtMuS[r]);   
+Pop[p].Cell[i].ExtS[r] = 0.;   
+  
+} // end for r   
+  
+// init   
+Pop[p].Cell[i].V = Pop[p].Cell[i].RestPot;   
+Pop[p].Cell[i].RefrState = 0;   
+Pop[p].Cell[i].TimeLastSpike =   
+-10000.; // time of the last emitted spike (for NMDA saturation)   
+Pop[p].Cell[i].PTimeLastSpike = -10000.; // time of spike emitted   
+// previous the last emitted   
+// spiek (for NMDA saturation)   
+  
+// Axonal tree -------------------------------   
+// loop on target populations   
+Pop[p].Cell[i].Naxonals = 0;   
+  
+for (tpi = 0; tpi &lt; PopD[p].NTargetPops; tpi++) {   
+tp = PopD[p]   
+.TargetPops[tpi]; // target population (tpi=target pop index)   
+// loop on the neurons of the target population   
+  
+// choose the target neurons/populations and put them in a temporary   
+// vector ni/tpni   
+na = Pop[p].Cell[i].Naxonals; // auxiliary variable to speed up   
+  
+for (tn = 0; tn &lt; PopD[tp].Ncells; tn++) {   
+if (tp == p) {   
+if (i == tn) continue; // avoid self connections   
+}   
+  
+if (drand49() &lt;   
+PopD[p].SynP[tpi].Connectivity) { // the connection exists   
+ni[na] = tn; // target neuron   
+tpni[na] = tp; // target population   
+trni[na] = PopD[p].SynP[tpi].TargetReceptor; // target receptor   
+do {   
+efficacy = gasdev() * PopD[p].SynP[tpi].EfficacySD +   
+PopD[p].SynP[tpi].MeanEfficacy;   
+} while (efficacy &lt; 0);   
+eff[na] = efficacy; // efficacy   
+// printf("%f\n",efficacy);   
+D[na] = 1;   
+pv[na] = PopD[p].SynP[tpi].pv;   
+tauD[na] = PopD[p].SynP[tpi].tauD;   
+Fp[na] = PopD[p].SynP[tpi].Fp;   
+if (Fp[na] == 0)   
+F[na] = 1;   
+else   
+F[na] = 0;   
+tauF[na] = PopD[p].SynP[tpi].tauF;   
+  
+if (strncmp(PopD[tp].ReceptorLabel[trni[na]], "NMDA", 4) == 0) {   
+ts[na] = 0.; // initial LastConductance (for NMDA saturation)   
+} else   
+ts[na] = -1.; // not an NMDA type (so, no saturation)   
+na++;   
+Pop[p].Cell[i].Naxonals++;   
+}   
+} // end for tn   
+} // enf for tpi   
+//   
+Pop[p].Cell[i].Axonals =   
+(Synapse *)calloc(Pop[p].Cell[i].Naxonals, sizeof(Synapse));   
+  
+for (j = 0; j &lt; Pop[p].Cell[i].Naxonals; j++) {   
+Pop[p].Cell[i].Axonals[j].TargetPop = tpni[j];   
+Pop[p].Cell[i].Axonals[j].TargetNeuron = ni[j];   
+Pop[p].Cell[i].Axonals[j].Efficacy = eff[j];   
+Pop[p].Cell[i].Axonals[j].TargetReceptor = trni[j];   
+Pop[p].Cell[i].Axonals[j].D = D[j];   
+Pop[p].Cell[i].Axonals[j].pv = pv[j];   
+Pop[p].Cell[i].Axonals[j].tauD = tauD[j];   
+Pop[p].Cell[i].Axonals[j].F = F[j];   
+Pop[p].Cell[i].Axonals[j].Fp = Fp[j];   
+Pop[p].Cell[i].Axonals[j].tauF = tauF[j];   
+Pop[p].Cell[i].Axonals[j].LastConductance = ts[j];   
+}   
+} // end for i   
+} // end for p   
+  
+if (flagverbose) {   
+report("Network generated\n");   
+fflush(stdout);   
+}   
+}  
+

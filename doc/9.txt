@@ -1,0 +1,211 @@
+# Events and int HandleEvent(void)
+
+Events allow for certain simulation parameters to be modified at predetermined times mid-trial.  
+
+
+  
+
+
+Each event has a type, a time (in ms), and several optional fields. Full list of fields from struct:  
+
+
+  
+
+
+int Type;   
+float ETime;   
+int PopNumber;   
+int TargetPopNumber;   
+int ReceptorNumber;   
+float FreqExt;   
+float FreqExtSD;   
+float MeanEff;   
+char Label[100];   
+
+
+  
+
+
+There are five types of events:  
+
+
+  1. ENDOFTRIAL simply ends the trial at the designated point in time.  
+
+  2. CHANGEEXTFREQ adjusts the external frequency for a given population and given receptor type   
+
+    1. Requires fields PopNumber ReceptorNumber FreqExt  
+
+    2. Automatically adjusts MeanExtMuS and MeanExtSigmaS for the given population  
+
+    3. Also adjusts ExtMuS and ExtSigmaS for each neuron in the population, following a truncated Gaussian distribution   
+
+  3. CHANGEMEANEFF adjusts the efficacy of connections from one population to another of a given receptor type  
+
+    1. Requires fields PopNumber TargetPopNumber ReceptorNumber MeanEff  
+
+    2. Adjusts PopD[p].SynP[i].MeanEfficacy = MeanEff for all population connections meeting those requirements  
+
+    3. For each axonal connection of each cell in the source population, sets Pop[p].Cell[i].Axonals[j].Efficacy = MeanEff if target population and receptor type matches  
+
+  4. CHANGEEXTFREQSD adjusts the standard deviation of the external frequency for a given population and receptor type  
+
+    1. Requires fields PopNumber ReceptorNumber FreqExtSD  
+
+  5. RESETEXTFREQ does the same thing as CHANGEEXTFREQ  
+
+
+
+
+  
+
+
+The global array EventDescr Events[MAXEVENTS] is a queue of all events with CEvent serving as a pointer to the front of the queue (current event).  
+
+
+  
+
+
+The function int HandleEvent(void) is responsible for handling an event. It is called by the main method whenever the simulation time exceeds the time of the next event, as this function simply unconditionally evaluates the first event in the queue when it is called. If the current event type is ENDOFTRIAL, then this function returns 0, triggering the end of the simulation. Otherwise it updates the current event number and the next event time, and returns 1.  
+
+
+  
+
+
+* * *
+
+  
+
+
+// ===============================================================   
+// Protocol descriptors   
+  
+#define MAXEVENTS 200   
+  
+#define ENDOFTRIAL 1   
+#define CHANGEEXTFREQ 2   
+#define CHANGEMEANEFF 3   
+#define CHANGEEXTFREQSD 4   
+#define RESETEXTFREQ 5   
+  
+typedef struct {   
+int Type;   
+float ETime;   
+int PopNumber;   
+int TargetPopNumber;   
+int ReceptorNumber;   
+float FreqExt;   
+float FreqExtSD;   
+float MeanEff;   
+char Label[100];   
+} EventDescr;   
+  
+int NEvents=0;   
+int CEvent; // current event   
+float NextEventTime=0.;   
+float TrialDuration=1000.; // in ms   
+EventDescr Events[MAXEVENTS];  
+
+
+  
+
+
+  
+
+
+* * *
+
+  
+
+
+// Handle event   
+// -------------------------------------------------------------------------------------------------------------------   
+  
+int HandleEvent(void) {   
+int i, p, r, q, j;   
+float efficacy, MeanEff;   
+  
+if (Events[CEvent].Type == ENDOFTRIAL) {   
+return 0;   
+}   
+  
+if (Events[CEvent].Type == RESETEXTFREQ) {   
+p = Events[CEvent].PopNumber;   
+r = Events[CEvent].ReceptorNumber;   
+PopD[p].FreqExt[r] = Events[CEvent].FreqExt;   
+// printf("%7.1f ------------------ Event: %s ----------------\n",Time,Events[CEvent].Label);   
+  
+efficacy = PopD[p].MeanExtEff[r];   
+PopD[p].MeanExtMuS[r] = PopD[p].FreqExt[r] * .001 * efficacy *   
+PopD[p].MeanExtCon[r] * PopD[p].Tau[r];   
+PopD[p].MeanExtSigmaS[r] =   
+sqrt(PopD[p].Tau[r] * .5 * PopD[p].FreqExt[r] * .001 * efficacy *   
+efficacy * PopD[p].MeanExtCon[r]);   
+  
+for (i = 0; i &lt; Pop[p].Ncells; i++) {   
+do {   
+efficacy = (gasdev() * PopD[p].ExtEffSD[r]) + PopD[p].MeanExtEff[r];   
+} while (efficacy &lt; 0);   
+Pop[p].Cell[i].ExtMuS[r] = PopD[p].FreqExt[r] * .001 * efficacy *   
+PopD[p].MeanExtCon[r] * PopD[p].Tau[r];   
+Pop[p].Cell[i].ExtSigmaS[r] =   
+sqrt(PopD[p].Tau[r] * .5 * PopD[p].FreqExt[r] * .001 * efficacy *   
+efficacy * PopD[p].MeanExtCon[r]);   
+}   
+}   
+if (Events[CEvent].Type == CHANGEEXTFREQ) {   
+p = Events[CEvent].PopNumber;   
+r = Events[CEvent].ReceptorNumber;   
+PopD[p].FreqExt[r] = Events[CEvent].FreqExt;   
+// printf("%7.1f ------------------ Event: %s ----------------\n",Time,Events[CEvent].Label);   
+  
+efficacy = PopD[p].MeanExtEff[r];   
+PopD[p].MeanExtMuS[r] = PopD[p].FreqExt[r] * .001 * efficacy *   
+PopD[p].MeanExtCon[r] * PopD[p].Tau[r];   
+PopD[p].MeanExtSigmaS[r] =   
+sqrt(PopD[p].Tau[r] * .5 * PopD[p].FreqExt[r] * .001 * efficacy *   
+efficacy * PopD[p].MeanExtCon[r]);   
+  
+for (i = 0; i &lt; Pop[p].Ncells; i++) {   
+do {   
+efficacy = (gasdev() * PopD[p].ExtEffSD[r]) + PopD[p].MeanExtEff[r];   
+} while (efficacy &lt; 0);   
+Pop[p].Cell[i].ExtMuS[r] = PopD[p].FreqExt[r] * .001 * efficacy *   
+PopD[p].MeanExtCon[r] * PopD[p].Tau[r];   
+Pop[p].Cell[i].ExtSigmaS[r] =   
+sqrt(PopD[p].Tau[r] * .5 * PopD[p].FreqExt[r] * .001 * efficacy *   
+efficacy * PopD[p].MeanExtCon[r]);   
+}   
+}   
+  
+if (Events[CEvent].Type == CHANGEEXTFREQSD) {   
+p = Events[CEvent].PopNumber;   
+r = Events[CEvent].ReceptorNumber;   
+PopD[p].FreqExtSD[r] = Events[CEvent].FreqExtSD;   
+// printf("%7.1f ------------------ Event: %s ----------------\n",Time,Events[CEvent].Label);   
+}   
+  
+if (Events[CEvent].Type == CHANGEMEANEFF) {   
+p = Events[CEvent].PopNumber;   
+q = Events[CEvent].TargetPopNumber;   
+r = Events[CEvent].ReceptorNumber;   
+// printf("%7.1f ------------------ Event: %s ----------------\n",Time,Events[CEvent].Label);   
+MeanEff = Events[CEvent].MeanEff;   
+for (i = 0; i &lt; PopD[p].NTargetPops; i++)   
+if (PopD[p].TargetPops[i] == q) {   
+if (PopD[p].SynP[i].TargetReceptor == r)   
+PopD[p].SynP[i].MeanEfficacy = MeanEff;   
+}   
+for (i = 0; i &lt; Pop[p].Ncells; i++) {   
+for (j = 0; j &lt; Pop[p].Cell[i].Naxonals; j++)   
+if ((Pop[p].Cell[i].Axonals[j].TargetPop == q) &amp;&amp;   
+(Pop[p].Cell[i].Axonals[j].TargetReceptor == r))   
+Pop[p].Cell[i].Axonals[j].Efficacy = MeanEff;   
+}   
+}   
+  
+CEvent++;   
+NextEventTime = Events[CEvent].ETime;   
+  
+return 1;   
+}  
+

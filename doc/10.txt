@@ -1,0 +1,165 @@
+# int main(int argc, char *argv[])
+
+  1. Set default parameters for the simulation  
+
+    1. Default seed is 1000. (note: the iseed variable is the negation of the seed value provided to the program)  
+
+    2. The current trial and trial number are 0. The program only ever runs a single trial, but a trial number can be provided for use in the output data.  
+
+    3. Verbose mode is on by default.  
+
+    4. All individual spike data is saved by default.  
+
+    5. No traces are performed by default.  
+
+  2. Parse command line arguments  
+
+    1. See "Compilation and Execution" note for details. These arguments modify the parameters listed above.  
+
+  3. Call DescribeNetwork() to parse the network.conf file.  
+
+  4. Call ParseProtocol() to parse the network.pro file.  
+
+  5. Call GenerateNetwork()  
+
+  6. Perform an individual trial  
+
+    1. Set current event to the first event (CEvent=0;NextEventTime=Events[CEvent].ETime;)  
+
+    2. Main simulation loop. FOR loop that increments time (dt=.1 set elsewhere), and continues as long as all calls to HandleEvent() return true  
+
+      1. Call SimulateOneTimeStep()  
+
+      2. If an event time has arrived:  
+
+        1. Call SaveSpikes(1)  
+
+        2. Handle all due events using HandleEvent(), which also updates the current event and next event time, with a false return value (generated only by an ENDOFTRIAL event) indicating that the trial is over and to not repeat the main simulation loop.  
+
+      3. Otherwise if an event time has not arrived:  
+
+        1. Call SaveSpikes(0)  
+
+      4. Call SaveTraces()  
+
+
+
+
+  
+
+
+* * *
+
+  
+
+
+int main(int argc, char *argv[])   
+{   
+int ti,runflag,tistepforsaving,rseed;   
+long iseed;   
+  
+iseed=-1000;   
+sran1(&amp;iseed);   
+  
+CurrentTrial=0;   
+Trialnumber=0;  
+  
+flagverbose=1;   
+//NumberofTrials=1;   
+FlagSaveAllSpikes=1;   
+// strcpy(prefix,"cl_");   
+  
+if(argc&gt;1) {   
+do {   
+if(strncmp(argv[argc-1],"-v",2)==0) {   
+flagverbose=1; argc--; GenerateNetwork()  
+continue;   
+}   
+if(strncmp(argv[argc-1],"-h",2)==0) {   
+printf("cl_realsimu7e_p \n Usage:\n-h : this help\n-v : verbose mode\n-t# : number of saved traces per population\n");   
+// printf("-T# : number of trials (the network is the same for each trial, the realization of the ext noise changes)\n");   
+printf("-ns : spikes and traces are not saved. Only the mean frequencies are saved for each trial\n");   
+printf("-s# : seed for the random number generator.\n");   
+return -1;   
+}   
+if(strncmp(argv[argc-1],"-t",2)==0) {   
+NumberofTraces=atoi(&amp;argv[argc-1][2]);   
+printf("Number of saved traces: %d\n",NumberofTraces);   
+argc--; continue;   
+}   
+if(strncmp(argv[argc-1],"-s",2)==0) {   
+rseed=atoi(&amp;argv[argc-1][2]);   
+//srand49(rseed); this will set the seed for srand49() to rseed, which is not necessory. the drand49 is used to construct the network connection in the sparse network.   
+//by commenting this, the chance of connectivity and the gaussian number is different seeded, with the later from command line input   
+iseed=-1*(long)rseed;   
+sran1(&amp;iseed);   
+printf("Seed for random generator: %d\n",rseed);   
+argc--; continue;   
+}   
+  
+if(strncmp(argv[argc-1],"-n",2)==0) {   
+Trialnumber=atoi(&amp;argv[argc-1][2]);   
+printf("Trialnumber: %d\n",Trialnumber);   
+argc--; continue;   
+}   
+if(strncmp(argv[argc-1],"-ns",3)==0) {   
+FlagSaveAllSpikes=0;   
+NumberofTraces=0;   
+printf("Spikes are not saved\n");   
+argc--; continue;   
+}   
+/*   
+if(strncmp(argv[argc-1],"-T",2)==0) {   
+NumberofTrials=atoi(&amp;argv[argc-1][2]);   
+printf("Number of trials: %d\n",NumberofTrials);   
+argc--; continue;   
+}   
+*/   
+/*   
+if(strncmp(argv[argc-1],"-p",2)==0) {   
+strcpy=(prefix,&amp;argv[argc-1][2]);   
+printf("Prefix to all input/output files: %s\n",prefix);   
+argc--; continue;   
+}   
+*/   
+printf("ERROR: unrecognized option: %s\n",argv[argc]);   
+argc--;   
+} while(argc&gt;1);   
+}   
+if(DescribeNetwork()==-1) {printf("Unrecoverable error in parsing the conf file, exiting...\n"); return -1;}   
+if(ParseProtocol()==-1) { printf("Unrecoverable error in parsing the protocol file, exiting...\n"); return -1;}   
+  
+GenerateNetwork();   
+  
+//for(CurrentTrial=0;CurrentTrial&lt;NumberofTrials;CurrentTrial++)   
+//{   
+report("Trial #\%d\n=====================================================================\n",Trialnumber);   
+CEvent=0;   
+NextEventTime=Events[CEvent].ETime;   
+runflag=1;   
+  
+//GenMatLabMultiTrial();   
+  
+//if(CurrentTrial) InitializeNetwork();   
+  
+for(ti=0,Time=0.;runflag;Time+=dt,ti++)   
+{   
+SimulateOneTimeStep();   
+// handle all the events   
+if(Time&gt;=NextEventTime) {   
+SaveSpikes(1);   
+while(Time&gt;=NextEventTime)   
+{   
+runflag=HandleEvent();   
+if(runflag==0) break;   
+}   
+}   
+else SaveSpikes(0);   
+  
+SaveTraces();   
+}   
+report("\rEnd of the trial\n");   
+//}   
+}   
+  
+

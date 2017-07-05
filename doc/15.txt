@@ -1,0 +1,4 @@
+# simu.log
+
+Generated file containing a copy of STDOUT, which includes the contents of the configuration files, some options settings, and list of populations.  
+

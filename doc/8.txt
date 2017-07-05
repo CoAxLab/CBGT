@@ -1,0 +1,210 @@
+# int SaveSpikes(int eventflag)
+
+This function generates output files based on the spike data, both for individual spike data and the mean population frequency. It is called by the main method for every time step, with the eventflag parameter indicating whether an Event occurred during that time step.  
+
+
+  
+
+
+When first called, this function opens pop#_#.dat (if FlagSaveAllSpikes is true) for each population, and popfreqs#.dat for the trial.  
+
+
+  
+
+
+Defined constant STEPSFORSAVINGFREQ (default 10) determines how many time steps pass between each save of mean population frequencies.
+
+Defined constant TIMEWINDOWFORFREQ (default 20) is how many milliseconds form the bucket for calculating the mean population frequencies.  
+
+
+  
+
+
+This function maintains a circular SpikeBuffer with one row per population and one column per time step, which contains *partial* mean frequencies. The size of the buffer in memory is determined by defined constant SPIKEBUFFER (default 300), although only the first buffersize = (int)(TIMEWINDOWFORFREQ / dt) columns are used. The static variable currentpt points to the current column in the buffer. The array meanfreqs[MAXP] contains one row per population and stores the current mean frequency, which for a given population is the sum of the corresponding row in the spike buffer. Each time step, the current column of the buffer (the oldest spike data) is subtracted from meanfreqs, and the new column is calculated to replace the old column and added to meanfreqs.  
+
+
+  
+
+
+The partial frequencies are calculated for each population by dividing the number of spikes for that population by the number of cells, and then divide by the window size (adjusting ms -&gt; s so frequencies are in Hz).  
+
+
+  
+
+
+It also (if FlagSaveAllSpikes is true) records the source neuron and the time of spike for each spike. This function also keeps track of the time between two events.  
+
+
+  
+
+
+The array meanfreqsbetweenevents is not used, but contains the sum of all instantaneous frequencies (bin size is 1 time step) between events, and is reset to 0 if event flag is true.  
+
+
+meanfreqsbetweenevents[p] += (float)Pop[p].NTableofSpikes[TempPointer] /  
+(float)Pop[p].Ncells / dt * 1000.;  
+
+
+Dividing this value by the number of time steps between two events gives the mean frequencies between those events.  
+
+
+meanfreqsbetweenevents[p]/(Time-timelastevent)*dt  
+
+
+  
+
+
+* * *
+
+  
+
+
+#define TIMEWINDOWFORFREQ 20. // time window on which the mean pop frequency is estimated (in ms)  
+#define RASTERPLOTNEURONS 50 // number of neurons in the raster plot  
+#define NUMBEROFTRACES 2 // number of visualized traces of V  
+#define STEPSFORPRINTIGFREQS 500 // every ... step, the frequencies are printed  
+#define STEPSFORSAVINGFREQS 10 // every ... step the frequencies are saved (not always, to save space)  
+#define STEPSFORFLUSHING 80  
+#define SPIKEBUFFER 300 //szie of the array SpikeBuffer[] in SaveSpikes(). This value should be no  
+// smaller than TIMEWINDOWFORFREQ/dt  
+
+
+  
+
+
+* * *
+
+int SaveSpikes(int eventflag) {  
+static int InitFlag = 1;  
+static FILE *devspikes[MAXP], *devfreqs;  
+static float meanfreqs[MAXP];  
+static float timelastevent;  
+static float meanfreqsbetweenevents[MAXP];  
+static float SpikeBuffer[MAXP][SPIKEBUFFER];  
+static int counter;  
+static int lasttrial = 0;  
+static int currentpt, buffersize; // for SpikeBuffer[][]  
+int i, p, TempPointer;  
+float TempBuffer;  
+char TempName[100];  
+  
+// initialize if it is the first call  
+if (InitFlag || (lasttrial != CurrentTrial)) {  
+// if there is a new trial, close all the files of the previous trial  
+if (lasttrial != CurrentTrial) {  
+if (FlagSaveAllSpikes) {  
+for (p = 0; p &lt; Npop; p++) {  
+fclose(devspikes[p]);  
+}  
+}  
+lasttrial = CurrentTrial;  
+// and then open th new ones  
+}  
+  
+buffersize = (int)(TIMEWINDOWFORFREQ / dt);  
+if (buffersize &gt;= SPIKEBUFFER) {  
+printf(  
+"Error: SPIKEBUFFER is too small. Edit the code and recomplie the "  
+"program. \n");  
+exit(1);  
+};  
+currentpt = 0;  
+  
+// open all files  
+printf("\n Time (ms) ");  
+  
+for (p = 0; p &lt; Npop; p++) {  
+sprintf(TempName, "pop%d_%d.dat", p + 1, Trialnumber);  
+if (FlagSaveAllSpikes) {  
+devspikes[p] = fopen(TempName, "w");  
+if (devspikes[p] == NULL) return 0;  
+}  
+meanfreqs[p] = 0.;  
+meanfreqsbetweenevents[p] = 0.;  
+  
+for (i = 0; i &lt; SPIKEBUFFER; i++) SpikeBuffer[p][i] = 0;  
+  
+printf("%12s", Pop[p].Label);  
+}  
+timelastevent = 0.;  
+  
+sprintf(TempName, "popfreqs%d.dat", Trialnumber);  
+devfreqs = fopen(TempName, "w");  
+if (devfreqs == NULL) return 0;  
+InitFlag = 0;  
+counter = 0;  
+printf(  
+"\n---------------------------------------------------------------\n");  
+}  
+  
+if ((counter % STEPSFORSAVINGFREQS) == 0) fprintf(devfreqs, "%f\t", Time);  
+  
+// if((counter % STEPSFORPRINTIGFREQS)==0) printf("%7.1f ms",Time);  
+  
+for (p = 0; p &lt; Npop; p++) {  
+TempPointer = Pop[p].CTableofSpikes - 1;  
+if (TempPointer &lt; 0) TempPointer = MAXDELAYINDT - 1;  
+  
+meanfreqsbetweenevents[p] += (float)Pop[p].NTableofSpikes[TempPointer] /  
+(float)Pop[p].Ncells / dt * 1000.;  
+  
+meanfreqs[p] +=  
+-SpikeBuffer[p][currentpt] +  
+(TempBuffer = (float)Pop[p].NTableofSpikes[TempPointer] /  
+(float)Pop[p].Ncells * 1000 / TIMEWINDOWFORFREQ);  
+SpikeBuffer[p][currentpt] = TempBuffer;  
+  
+if (currentpt &lt; buffersize - 1)  
+currentpt++;  
+else  
+currentpt = 0;  
+// meanfreqs[p]+=dt/TIMEWINDOWFORFREQ*(-meanfreqs[p]+(float)Pop[p].NTableofSpikes[TempPointer]/(float)Pop[p].Ncells/dt*1000.);  
+// // compute mean freq in Hz on a time window of 10 ms  
+  
+// if((counter % STEPSFORPRINTIGFREQS)==0) printf("%12.1f",meanfreqs[p]);  
+// if((counter % STEPSFORPRINTIGFREQS)==0) printf("%s FreqExtSD=%f  
+// \n",PopD[0].ReceptorLabel[0],PopD[0].FreqExtSD[0]);  
+if ((counter % STEPSFORSAVINGFREQS) == 0)  
+fprintf(devfreqs, "%f\t",  
+meanfreqs[p]); // mean frequency in Hz per neuron  
+  
+if (FlagSaveAllSpikes) {  
+for (i = 0; i &lt; Pop[p].NTableofSpikes[TempPointer]; i++) {  
+fprintf(devspikes[p], "%d\t%f\n", Pop[p].TableofSpikes[TempPointer][i],  
+Time);  
+}  
+}  
+}  
+  
+if ((counter % STEPSFORSAVINGFREQS) == 0) fprintf(devfreqs, "\n");  
+// if((counter % STEPSFORPRINTIGFREQS)==0) printf("\n");  
+  
+// if((counter % STEPSFORSAVINGFREQS)==0) fprintf(devfreqs," %f  
+// \n",current_freq);  
+// if((counter % STEPSFORPRINTIGFREQS)==0) printf(" %f \n",current_freq);  
+  
+if ((counter % STEPSFORFLUSHING) == 0) {  
+if (FlagSaveAllSpikes) {  
+for (p = 0; p &lt; Npop; p++) {  
+fflush(devspikes[p]);  
+}  
+}  
+fflush(devfreqs);  
+}  
+  
+if (eventflag) {  
+// printf("Average: ");  
+for (p = 0; p &lt; Npop; p++) {  
+// printf("%12.1f",meanfreqsbetweenevents[p]/(Time-timelastevent)*dt);  
+meanfreqsbetweenevents[p] = 0.;  
+}  
+// printf("\n");  
+// fflush(stdout);  
+timelastevent = Time;  
+}  
+  
+counter++;  
+  
+return 1;  
+}  
+

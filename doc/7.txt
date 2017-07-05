@@ -1,0 +1,215 @@
+# network.pro and int ParseProtocol()
+
+The configuration file network.pro contains a list of every Event to be performed during the trial, and ParseProtocol() is responsible for reading this file and generating the Events queue.  
+
+
+  
+
+
+Format of network.pro:
+
+The file is broken up into a series of multi-line Event declarations, each of which has 1 statement per line. All blank lines and lines starting with % are ignored as comments. The start of an event declaration is indicated by
+
+EventTime f  
+
+
+where f is a float indicating the time of the event. This line is followed by multiple additional lines containing the parameters of the event. Each of these lines is in the format [key] [value] where [key] is one of the options listed below and [value] is either a float or string. All events require a Type, while the other keys may/may not be needed depending on the type of event (see the "Events" note for details).  
+
+
+Type= One of ResetExtFreq ChangeExtFreq ChangeExtFreqSD ChangeMeanEff EndTrial  
+
+
+FreqExt= A float  
+
+
+FreqExtSD= A float  
+
+
+MeanEff= A float  
+
+
+Label= A descriptive label (string) for the event  
+
+
+Population: The name (string) of the affected population  
+
+
+TargetPopulation: The name (string) of the receptive population, if dealing with a connection between two populations.  
+
+
+Receptor: One of AMPA GABA NMDA  
+
+
+Finally, each event declaration is terminated by  
+
+
+EndEvent  
+
+
+  
+
+
+The events contained within network.pro must be in sorted order (by EventTime), and the file must contain at least an  EndTrial event to indicate the length of the trial.  
+
+
+  
+
+
+* * *
+
+  
+
+
+// -------------------------------------------------------------------------------------   
+// Parse protocol   
+// -------------------------------------------------------------------------------------   
+  
+int ParseProtocol() {   
+FILE *devprot;   
+char buf[1000], *s, *es;   
+int eventflag = 0;   
+int line, auxi, currentpop;   
+float aux;   
+  
+report(   
+"\-------------------------------------------------\nParsing "   
+"protocol...\n");   
+  
+/* strncpy=(network_pro,prefix,strlen(prefix));   
+strcpy=(network_pro+strlen(prefix),"network.pro");   
+devconf=fopen(network_pro,"r");*/   
+devprot = fopen("network.pro", "r");   
+if (devprot == NULL) {   
+printf("ERROR: Unable to read protocol file\n");   
+return 0;   
+}   
+  
+line = -1;   
+NEvents = 0;   
+  
+while (fgets(buf, 1000, devprot) != NULL) {   
+line++;   
+s = buf;   
+// trim \n at the end   
+es = buf;   
+while (*es &amp;&amp; *es != '\n') es++;   
+*es = 0;   
+  
+while (*s == ' ' || *s == '\t') s++; // skip blanks   
+if (*s == 0) continue; // empty line   
+if (*s == '%') continue; // remark   
+  
+// commands for defining a new event   
+if (strncmp(s, "EventTime", 9) == 0) {   
+eventflag = 1;   
+s += 9;   
+Events[NEvents].ETime = atof(s);   
+if (Events[NEvents].ETime &lt; 0.) {   
+printf("ERROR: Invalid event time, line %d\n", line);   
+return -1;   
+}   
+  
+report("Event %d: time %f ms\n", NEvents, Events[NEvents].ETime);   
+continue;   
+}   
+  
+if (strncmp(s, "EndEvent", 8) == 0) {   
+eventflag = 0;   
+NEvents++;   
+continue;   
+}   
+  
+if (strncmp(s, "Type=", 5) == 0) {   
+s += 5;   
+while (*s == ' ' || *s == '\t') s++;   
+if (strncmp(s, "ResetExtFreq", 13) == 0) {   
+Events[NEvents].Type = RESETEXTFREQ;   
+}   
+if (strncmp(s, "ChangeExtFreq", 13) == 0) {   
+Events[NEvents].Type = CHANGEEXTFREQ;   
+}   
+if (strncmp(s, "ChangeExtFreqSD", 15) == 0) {   
+Events[NEvents].Type = CHANGEEXTFREQSD;   
+}   
+if (strncmp(s, "ChangeMeanEff", 13) == 0) {   
+Events[NEvents].Type = CHANGEMEANEFF;   
+}   
+if (strncmp(s, "EndTrial", 8) == 0) {   
+Events[NEvents].Type = ENDOFTRIAL;   
+TrialDuration = Events[NEvents].ETime;   
+}   
+continue;   
+}   
+  
+if (strncmp(s, "FreqExt=", 8) == 0) {   
+s += 8;   
+Events[NEvents].FreqExt = atof(s);   
+report(" New external frequency: %f Hz\n", Events[NEvents].FreqExt);   
+continue;   
+}   
+if (strncmp(s, "FreqExtSD=", 10) == 0) {   
+s += 10;   
+Events[NEvents].FreqExtSD = atof(s);   
+report(" New external frequency SD: %f Hz\n", Events[NEvents].FreqExtSD);   
+continue;   
+}   
+  
+if (strncmp(s, "MeanEff=", 8) == 0) {   
+s += 8;   
+Events[NEvents].MeanEff = atof(s);   
+report(" New Mean Eff: %f Hz\n", Events[NEvents].MeanEff);   
+continue;   
+}   
+  
+if (strncmp(s, "Label=", 6) == 0) {   
+s += 6;   
+strcpy(Events[NEvents].Label, s);   
+report(" Label: [%s]\n", Events[NEvents].Label);   
+continue;   
+}   
+  
+if (strncmp(s, "Population:", 11) == 0 &amp;&amp; eventflag) {   
+s += 11;   
+while (*s == ' ') s++;   
+currentpop = PopulationCode(s);   
+if (currentpop == -1) {   
+printf("ERROR: Unknown population: line %d\n", line);   
+return -1;   
+}   
+Events[NEvents].PopNumber = currentpop;   
+report(" Population code: %d\n", currentpop);   
+continue;   
+}   
+  
+if (strncmp(s, "TargetPopulation:", 17) == 0 &amp;&amp; eventflag) {   
+s += 17;   
+while (*s == ' ') s++;   
+currentpop = PopulationCode(s);   
+if (currentpop == -1) {   
+printf("ERROR: Unknown population: line %d\n", line);   
+return -1;   
+}   
+Events[NEvents].TargetPopNumber = currentpop;   
+report(" TargetPopulation code: %d\n", currentpop);   
+continue;   
+}   
+  
+if (strncmp(s, "Receptor:", 9) == 0 &amp;&amp; eventflag) {   
+s += 9;   
+while (*s == ' ' || *s == '\t') s++;   
+auxi = ReceptorCode(s, currentpop);   
+if (auxi == -1) {   
+printf("ERROR: Unknown receptor, line %d\n", line);   
+return -1;   
+}   
+Events[NEvents].ReceptorNumber = auxi;   
+report(" Receptor code:%d\n", auxi);   
+}   
+  
+} // end while   
+  
+// sort events!... (for now I rely on the fact that events are sorted)   
+  
+return 1;   
+}  
+

@@ -1,0 +1,52 @@
+# Short-term depression and short-term facilitation
+
+Although only the equation for STD is shown in the paper, the program also includes code for STF, (which works identically except the change of sign?). See equation 7 from the paper. The variable D represents a multiplier on the synaptic current for that particular projection.  
+
+
+  
+
+
+Decay over time:  
+
+
+dx/dt = (1 - x) / tau  
+
+
+When a spike is received:  
+
+
+x += -p*x  
+
+
+  
+
+
+Variables for STD:  
+
+
+x .D  
+
+
+tau .tauD (= 1000)  
+
+
+p .pv (= 0)  
+
+
+Variables for STF:  
+
+
+x .F  
+
+
+tau .tauF (= 5000)  
+
+
+p .Fp (= 0)  
+
+
+  
+
+
+The values of tau and p for each type and each connection can be specified in the network.conf file within their target declarations. Since p=0 by default, STD and STF are off by default.  
+

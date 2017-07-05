@@ -1,0 +1,4 @@
+# pop#_#.dat
+
+Output file containing all spike information for a given population. First # is population ID and second # is trial number. Data is formatted in two columns, with each row representing a single spike. The first column is neuron ID, and the second column is the spike time (in ms).  
+

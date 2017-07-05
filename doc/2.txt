@@ -1,0 +1,455 @@
+# int SimulateOneTimeStep()
+
+Maintains an array of new external frequencies (freq[MAXP][MAXRECEPTORS]) and last external frequencies (last_freq[MAXP][MAXRECEPTORS]) for each population-receptor pair. The last frequency is used to determine the new external frequency in the case where the external frequency standard deviation is non-zero, otherwise the new external frequency is just its mean value. On the very first timestep, all last frequencies are initialized to the mean external frequencies.  
+
+
+  
+
+
+  1. For each population  
+
+    1. For each receptor type  
+
+      1. If external frequency standard deviation is non-zero  
+
+        1. Calculate the new external frequency. Using the mean and standard deviation, first randomly picks a "target" external frequency, and then moves the last frequency 1-.FreqExtDecay proportion of the way (0.001 by default) towards the target.  
+
+        2. Mathematical note: this means the long-term standard deviation of the external input is actually FESD*sqrt((1-FED)/(FED+1))  
+
+      2. Else if standard deviation is zero  
+
+        1. New external frequency is just the mean external frequency  
+
+    2. For each cell  
+
+      1. For each receptor type  
+
+        1. Calculate .ExtMuS and .ExtSigmaS using .MeanExtEff, corresponding to EQ 5,6 but for external inputs  
+
+        2. Update .LS to represent the decay of total internal conductances (EQ 5,6 term 2 for internal inputs)  
+
+  2. For each population  
+
+    1. For each _delayed_ spiking neuron in that population (the neurons whose spikes are now arriving)  
+
+      1. For each synapse of the spiking neuron  
+
+        1. Update short-term depression conductance multiplier value (EQ 7 term 2)  
+
+        2. Update short-term facilitation conductance multiplier value (EQ 7 term 2)  
+
+        3. If .LastConductance &lt; 0  
+
+          1. Update the total internal conductance (.LS) of the target neuron according the STD, STF, and efficacy. ()  
+
+        4. Else  
+
+          1. Decay the LastConducatance of the synapse (meaning increased potency?)  
+
+          2. Update the total internal conductance (.LS) of the target neuron according the STD, STF, efficacy, and 1-LastConductance of the synapse (EQ 5,6 term 1)   
+
+          3. Add a boost to the LastConductance of the synapse due to the spike (bringing it closer to 1)  
+
+        5. Add boosts to STD and STF due to the spike (EQ 7 term 1)  
+
+  3. For each population  
+
+    1. Reset number of emitted spikes in buffer to 0  
+
+    2. For each cell  
+
+      1. If potential (V) is less than V_h  
+
+        1. Adjust inactivation variable of the current (.h) according to equation 3 (not exact calculation)  
+
+        2. Coefficient of second term of EQ 1 (g_rb, rebound burst) is zero (Heaviside function)  
+
+      2. Else  
+
+        1. Adjust .h according to equation 2 (not exact calculation)  
+
+        2. Coefficient of second term of EQ 1 is .g_T * .h  
+
+      3. If cell potential is greater than cell threshold, set potential to the reset potential (.ResetPot, -55 mV in example configurations, slightly less than threshold at -55 mV), and decrement .RefrState (cooldown timer for refraction). Move on to the next cell.  
+
+      4. If cell is in refractory period, decrement and move on to the next cell.  
+
+      5. Calculate the anomalous delayed rectifier (ADR, g_adr)  
+
+      6. If cell has no potassium outward rectifying current (.g_k_max == 0)  
+
+        1. Potassium conductance is zero (g_k = 0)  
+
+      7. Else  
+
+        1. Update outward potassium channel gating variable (.n_k), and then g_k = .g_k_max * .n_k  
+
+      8. If efficacy for calcium-activated potassium channels (.g_ahp) is zero  
+
+        1. Calculate change in cell potential. Terms include restoration to resting potential (EQ 1 term 1), contribution from anomalous delayed rectifier (not shown in paper), contribution from outward potassium current (not shown in paper), and T-type calcium current (EQ 1 term 2).  
+
+      9. Else  
+
+        1. Calculate change in cell potential using an extra term. Terms include restoration to resting potential (EQ 1 term 1), contribution from calcium-activated potassium channels, contribution from anomalous delayed rectifier (not shown in paper), contribution from outward potassium current (not shown in paper), and T-type calcium current (EQ 1 term 2).  
+
+      10. Decay calcium concentrations (first order approximation)  
+
+      11. Create Vaux auxillary variable, which is cell potential truncated to the threshold voltage, used in some spots for numerical accuracy  
+
+      12. For each receptor type, calculate contribution to cell potential using both internal (.LS) and external (.ExtS) conductances. (EQ 1 term 3)  
+
+        1. If .MgFlag is true, which is only set for NMDA, then use a more complex term (EQ 4 term 2)  
+
+        2. Otherwise, use a simpler expression (EQ 4 terms 1,3)  
+
+      13. If cell potential greater than threshold, a spike is emitted  
+
+        1. Insert this cell ID into the .TableofSpikes, and increment .NTableofSpikes  
+
+        2. (Temporarily reset cell potential, not really though, the actual reset occurs next time step)  
+
+        3. Update .PTimeLastSpike and .TimeLastSpike for the neuron  
+
+        4. Set cell potential to 0, as the spike  
+
+        5. Set refractory period cooldown timer .RefrState = (int)floor(2. / dt), so refractory period is 2 ms  
+
+        6. Bump calcium concetration due to spike  
+
+  4. For each population  
+
+    1. Update pointers for circular spike buffers  
+
+
+
+
+  
+
+
+* * *
+
+  
+
+
+// ---------------------------------------------------------------------------------------------------   
+  
+/*   
+Trick for NMDA:   
+$$ {ds_k \over dt} = -{s_k \over \tau} +\alpha(1-s_k)\sum_j \delta(t-t^k_j)$$   
+Multiply by $w_k$ and sum:   
+$$ {dS \over dt} = -S \over \tau+\sum_k \alpha (1-s_k)w_k \delta(t-t^k_j)$$   
+*/   
+  
+// float current_freq;   
+  
+int SimulateOneTimeStep() {   
+int aux;   
+int p, i, j, r, sourceneuron;   
+int tn, tp, tr;   
+float s, saturationfactor;   
+float Vaux; // auxiliary V: during the emission of the spike V is set   
+// artificially to 0. This is bad for the reversal potential   
+float D, F;   
+float g_rb; // rebound burst   
+float g_adr, g_k, tau_max, alpha, beta, dv, n, tau_n, n_inif, efficacy,   
+ExtMuS, ExtSigmaS;   
+static float freq[MAXP][MAXRECEPTORS];   
+static float last_freq[MAXP][MAXRECEPTORS];   
+static int flag = 0;   
+static   
+  
+// DEBUG   
+float nvalues = 0,   
+value = 0;   
+  
+// END DEBUG   
+  
+if (flag == 0) {   
+for (j = 0; j &lt; MAXP; j++) {   
+for (i = 0; i &lt; MAXRECEPTORS; i++) freq[j][i] = PopD[j].FreqExt[i];   
+last_freq[j][i] = PopD[j].FreqExt[i];   
+}   
+flag = 1;   
+}   
+  
+// Compute the decay of the total conductances and add external input   
+// ------------------------------------------------------------------   
+// EQUATION 5   
+for (p = 0; p &lt; Npop; p++) {   
+for (r = 0; r &lt; MAXRECEPTORS; r++) {   
+if (PopD[p].FreqExtSD[r] != 0) {   
+// do{freq[p][r]=PopD[p].FreqExt[r]+gasdev()*PopD[p].FreqExtSD[r];}while(freq[p][r]&lt;0);   
+do {   
+freq[p][r] += -(1 - PopD[p].FreqExtDecay[r]) *   
+(last_freq[p][r] - PopD[p].FreqExt[r]) +   
+gasdev() * PopD[p].FreqExtSD[r];   
+} while (freq[p][r] &lt; 0);   
+last_freq[p][r] = freq[p][r];   
+ext_freq = freq[1][0];   
+  
+} else {   
+freq[p][r] = PopD[p].FreqExt[r];   
+ext_freq = freq[1][0];   
+}   
+}   
+// current_freq=freq[0][0];   
+for (i = 0; i &lt; Pop[p].Ncells; i++) {   
+for (r = 0; r &lt; Pop[p].Cell[i].Nreceptors; r++) {   
+efficacy = PopD[p].MeanExtEff[r];   
+Pop[p].Cell[i].ExtMuS[r] = freq[p][r] * .001 * efficacy *   
+PopD[p].MeanExtCon[r] *   
+Pop[p].Cell[i].Tau[r];   
+Pop[p].Cell[i].ExtSigmaS[r] =   
+sqrt(Pop[p].Cell[i].Tau[r] * .5 * freq[p][r] * .001 * efficacy *   
+efficacy * PopD[p].MeanExtCon[r]);   
+s = Pop[p].Cell[i].ExtSigmaS[r];   
+if (s != 0.) // to optimize   
+{   
+Pop[p].Cell[i].ExtS[r] +=   
+dt / Pop[p].Cell[i].Tau[r] *   
+(-Pop[p].Cell[i].ExtS[r] + Pop[p].Cell[i].ExtMuS[r]) +   
+s * sqrt(dt * 2. / Pop[p].Cell[i].Tau[r]) * gasdev();   
+} else {   
+Pop[p].Cell[i].ExtS[r] +=   
+dt / Pop[p].Cell[i].Tau[r] *   
+(-Pop[p].Cell[i].ExtS[r] + Pop[p].Cell[i].ExtMuS[r]);   
+}   
+  
+Pop[p].Cell[i].LS[r] *= exp(-dt / Pop[p].Cell[i].Tau[r]); // decay   
+}   
+}   
+}   
+  
+// Update the total conductances (changes provoked by the spikes)   
+// --------------------------------------------------------------   
+// EQUATION 7 ?   
+for (p = 0; p &lt; Npop; p++) { // if (Time==0) printf("the spike tabel %d\n",   
+// Pop[p].TableofSpikes[20][100]);   
+// loop over all the spikes emitted at time t-delay (they are received now)   
+for (i = 0; i &lt; Pop[p].NTableofSpikes[Pop[p].DTableofSpikes]; i++) {   
+sourceneuron = Pop[p].TableofSpikes[Pop[p].DTableofSpikes][i];   
+  
+// for each spike, loop over the target conductances   
+for (j = 0; j &lt; Pop[p].Cell[sourceneuron].Naxonals; j++) {   
+// Short-term depression: Calculate the recovery of D first.   
+Pop[p].Cell[sourceneuron].Axonals[j].D =   
+1 -   
+(1 - Pop[p].Cell[sourceneuron].Axonals[j].D) *   
+exp(-(Time - Pop[p].Cell[sourceneuron].PTimeLastSpike) /   
+Pop[p].Cell[sourceneuron].Axonals[j].tauD);   
+D = Pop[p].Cell[sourceneuron].Axonals[j].D;   
+// D=1.0;   
+// if(sourceneuron==20) printf(" %.1f %.1f .1%f .3%f \n",Time,   
+// Pop[p].Cell[sourceneuron].PTimeLastSpike,   
+// Pop[p].Cell[sourceneuron].tauD, Pop[p].Cell[sourceneuron].D);   
+  
+// Short-term facilitation: Calculate the F value   
+if (Pop[p].Cell[sourceneuron].Axonals[j].Fp == 0)   
+F = 1;   
+else {   
+Pop[p].Cell[sourceneuron].Axonals[j].F =   
+Pop[p].Cell[sourceneuron].Axonals[j].F *   
+exp(-(Time - Pop[p].Cell[sourceneuron].PTimeLastSpike) /   
+Pop[p].Cell[sourceneuron].Axonals[j].tauF);   
+F = Pop[p].Cell[sourceneuron].Axonals[j].F;   
+}   
+tn = Pop[p].Cell[sourceneuron].Axonals[j].TargetNeuron;   
+tp = Pop[p].Cell[sourceneuron].Axonals[j].TargetPop;   
+tr = Pop[p].Cell[sourceneuron].Axonals[j].TargetReceptor;   
+  
+if (Pop[p].Cell[sourceneuron].Axonals[j].LastConductance &lt;   
+0.) { // NO NMDA (no saturation)   
+Pop[tp].Cell[tn].LS[tr] +=   
+D * F *   
+Pop[p].Cell[sourceneuron].Axonals[j].Efficacy; // no saturation   
+} else {   
+// Now it should be correct. ALPHA factor to be determined (jump for every   
+// spike): now it is the maximum of a single spike   
+// TEMPORARY   
+#define ALPHA 0.6332   
+// 0.6332 is the best value for the area at 55 Hz. Best value depends   
+// on the frequency!!!   
+Pop[p].Cell[sourceneuron].Axonals[j].LastConductance *=   
+exp(-(Time - Pop[p].Cell[sourceneuron].PTimeLastSpike) /   
+Pop[tp].Cell[tn].Tau[tr]);   
+  
+Pop[tp].Cell[tn].LS[tr] +=   
+D * F * Pop[p].Cell[sourceneuron].Axonals[j].Efficacy *   
+(1. - Pop[p].Cell[sourceneuron].Axonals[j].LastConductance) *   
+ALPHA;   
+  
+Pop[p].Cell[sourceneuron].Axonals[j].LastConductance +=   
+ALPHA *   
+(1. - Pop[p].Cell[sourceneuron].Axonals[j].LastConductance);   
+}   
+// Calculate the change of D and F due to the spike.   
+Pop[p].Cell[sourceneuron].Axonals[j].F +=   
+Pop[p].Cell[sourceneuron].Axonals[j].Fp *   
+(1 - Pop[p].Cell[sourceneuron].Axonals[j].F);   
+Pop[p].Cell[sourceneuron].Axonals[j].D -=   
+Pop[p].Cell[sourceneuron].Axonals[j].pv * F *   
+Pop[p].Cell[sourceneuron].Axonals[j].D;   
+} // for j   
+// if(sourceneuron==20) printf("   
+// %f\n",Pop[p].Cell[sourceneuron].D);   
+// if(Pop[p].Cell[sourceneuron].D&lt;=0) Pop[p].Cell[sourceneuron].D=0;   
+}   
+}   
+  
+// Update the neuronal variables   
+// -----------------------------   
+  
+for (p = 0; p &lt; Npop; p++) {   
+Pop[p].NTableofSpikes[Pop[p].CTableofSpikes] =   
+0; // reset the number of emitted spikes for pop p   
+for (i = 0; i &lt; Pop[p].Ncells; i++) {   
+if (Pop[p].Cell[i].V &lt; Pop[p].Cell[i].V_h) {   
+// EQUATION 3   
+Pop[p].Cell[i].h +=   
+(1.0 - Pop[p].Cell[i].h) * dt / Pop[p].Cell[i].tauhp;   
+// EQUATION 1 TERM 2   
+g_rb = 0;   
+} else {   
+// EQUATION 2   
+Pop[p].Cell[i].h += -Pop[p].Cell[i].h * dt / Pop[p].Cell[i].tauhm;   
+// EQUATION 1 TERM 2   
+g_rb = Pop[p].Cell[i].g_T * Pop[p].Cell[i].h;   
+}   
+  
+if (Pop[p].Cell[i].V &gt; Pop[p].Cell[i].Threshold) {   
+Pop[p].Cell[i].V =   
+Pop[p].Cell[i].ResetPot; // special state after emission   
+Pop[p].Cell[i].RefrState--;   
+continue;   
+}   
+  
+// refractory period   
+  
+if (Pop[p].Cell[i].RefrState) {   
+Pop[p].Cell[i].RefrState--;   
+continue;   
+}   
+  
+// Anomalous delayed rectiflier (ADR)   
+if (Pop[p].Cell[i].g_adr_max == 0) // No ADR   
+g_adr = 0;   
+else // with ADR   
+g_adr = Pop[p].Cell[i].g_adr_max /   
+(1 + exp((Pop[p].Cell[i].V - Pop[p].Cell[i].Vadr_h) /   
+Pop[p].Cell[i].Vadr_s));   
+  
+// potassium outward rectifying current   
+if (Pop[p].Cell[i].g_k_max == 0) // No outward current   
+g_k = 0;   
+else { // with outward current   
+// g_k =   
+// Pop[p].Cell[i].g_k_max/(1+exp((-Pop[p].Cell[i].V+Pop[p].Cell[i].Vk_h)/Pop[p].Cell[i].Vk_s));   
+tau_max = Pop[p].Cell[i].tau_k_max;   
+dv = (Pop[p].Cell[i].V + 55.0);   
+// alpha=(-10.0/tau_max)*(dv-49)/(1-exp(-(dv-49)/100));   
+// beta=(0.17/tau_max)*exp(-(dv-11)/10);   
+tau_n = tau_max / (exp(-1 * dv / 30) + exp(dv / 30));   
+n_inif = 1 / (1 + exp(-(Pop[p].Cell[i].V - Pop[p].Cell[i].Vk_h) /   
+Pop[p].Cell[i].Vk_s));   
+  
+Pop[p].Cell[i].n_k += -dt / tau_n * (Pop[p].Cell[i].n_k - n_inif);   
+g_k = Pop[p].Cell[i].g_k_max * Pop[p].Cell[i].n_k;   
+// printf("v=%f dv=%f alpha=%f beta=%f g_k=%f   
+//\n",Pop[p].Cell[i].V,dv,alpha,beta,g_k);   
+}   
+  
+// decay   
+if (Pop[p].Cell[i].g_ahp == 0) // No spike-frequency adaptation   
+// EQUATION 1   
+Pop[p].Cell[i].V +=   
+-dt *   
+(1 / Pop[p].Cell[i].Taum *   
+(Pop[p].Cell[i].V - Pop[p].Cell[i].RestPot) +   
+g_adr / Pop[p].Cell[i].C *   
+(Pop[p].Cell[i].V - Pop[p].Cell[i].ADRRevPot) +   
+g_k / Pop[p].Cell[i].C *   
+(Pop[p].Cell[i].V - Pop[p].Cell[i].ADRRevPot) +   
+g_rb / Pop[p].Cell[i].C * (Pop[p].Cell[i].V - Pop[p].Cell[i].V_T));   
+else // with spike-frequency adaptation (the factor 1/1000 is needed to   
+// convert nS/nF to 1/ms)   
+// EQUATION 1   
+Pop[p].Cell[i].V +=   
+-dt *   
+(1 / Pop[p].Cell[i].Taum *   
+(Pop[p].Cell[i].V - Pop[p].Cell[i].RestPot) +   
+Pop[p].Cell[i].Ca * Pop[p].Cell[i].g_ahp / Pop[p].Cell[i].C *   
+0.001 * (Pop[p].Cell[i].V - Pop[p].Cell[i].Vk) +   
+g_adr / Pop[p].Cell[i].C *   
+(Pop[p].Cell[i].V - Pop[p].Cell[i].ADRRevPot) +   
+g_k / Pop[p].Cell[i].C *   
+(Pop[p].Cell[i].V - Pop[p].Cell[i].ADRRevPot) +   
+g_rb / Pop[p].Cell[i].C * (Pop[p].Cell[i].V - Pop[p].Cell[i].V_T));   
+  
+// [Ca] decay -- 1st order approximation   
+Pop[p].Cell[i].Ca += -Pop[p].Cell[i].Ca * dt / Pop[p].Cell[i].tau_ca;   
+  
+Vaux = Pop[p].Cell[i].V;   
+if (Vaux &gt; Pop[p].Cell[i].Threshold) Vaux = Pop[p].Cell[i].Threshold;   
+  
+// now add the synaptic currents (the factor 1/1000 is needed to convert   
+// nS/nF to 1/ms)   
+// EQUATION 1 TERM 3, EQUATION 4   
+for (r = 0; r &lt; Pop[p].Cell[i].Nreceptors; r++) {   
+if (Pop[p].Cell[i].MgFlag[r]) { // magnesium block   
+Pop[p].Cell[i].V += dt * (Pop[p].Cell[i].RevPots[r] - Vaux) * .001 *   
+(Pop[p].Cell[i].LS[r] + Pop[p].Cell[i].ExtS[r]) /   
+Pop[p].Cell[i].C /   
+(1. + exp(-0.062 * Vaux) / 3.57);   
+  
+/* // DEBUG DEBUG DEBUG   
+if(p==1 &amp;&amp; i==0) {   
+printf("[%f]",Pop[p].Cell[i].LS[r]);   
+}   
+// end DEBUG */   
+  
+} else {   
+Pop[p].Cell[i].V += dt * (Pop[p].Cell[i].RevPots[r] - Vaux) * .001 *   
+(Pop[p].Cell[i].LS[r] + Pop[p].Cell[i].ExtS[r]) /   
+Pop[p].Cell[i].C;   
+}   
+}   
+// spike condition   
+if (Pop[p].Cell[i].V &gt; Pop[p].Cell[i].Threshold) {   
+// a spike is emitted   
+Pop[p].TableofSpikes[Pop[p].CTableofSpikes]   
+[Pop[p].NTableofSpikes[Pop[p].CTableofSpikes]] = i;   
+if (Pop[p].NTableofSpikes[Pop[p].CTableofSpikes] &lt; MAXSPIKESINDT - 1)   
+Pop[p].NTableofSpikes[Pop[p].CTableofSpikes]++;   
+else {   
+printf(   
+"\nERROR: too many spikes in a dt (change MAXSPIKESINDT and "   
+"recompile)\n");   
+fflush(stdout);   
+}   
+  
+Pop[p].Cell[i].V = Pop[p].Cell[i].ResetPot;   
+Pop[p].Cell[i].PTimeLastSpike = Pop[p].Cell[i].TimeLastSpike;   
+Pop[p].Cell[i].TimeLastSpike = Time;   
+  
+Pop[p].Cell[i].V = 0.; // spike! (temporary)   
+Pop[p].Cell[i].RefrState =   
+(int)floor(2. / dt); // refractory period!!! (temporary)   
+  
+// [Ca] increases;   
+Pop[p].Cell[i].Ca += Pop[p].Cell[i].alpha_ca;   
+}   
+}   
+}   
+  
+// Update the pointers of the table of spikes   
+// ---------------------------------------------------------------   
+  
+for (p = 0; p &lt; Npop; p++) {   
+Pop[p].CTableofSpikes++;   
+if (Pop[p].CTableofSpikes &gt; MAXDELAYINDT - 1) Pop[p].CTableofSpikes = 0;   
+Pop[p].DTableofSpikes++;   
+if (Pop[p].DTableofSpikes &gt; MAXDELAYINDT - 1) Pop[p].DTableofSpikes = 0;   
+}   
+}   
+  
+

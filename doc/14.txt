@@ -1,0 +1,10 @@
+# popfreq#.dat
+
+Mean spike frequencies for each population over time. The # is the current trial number.  
+
+
+  
+
+
+Each row is a single unit of time. The first column is the time (in ms) and each additional column is the mean frequency for the given population (in Hz, ordered by population ID).  
+

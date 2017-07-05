@@ -1,0 +1,83 @@
+# Compilation and Execution
+
+Prior to execution, the test directory must contain both network.conf and network.pro files for the configuration/protocol of the simulation. The .conf file lists out parameters of the network (neural population names, size, and connectivity), while the .pro file is a list of special simulation events (such as the EndTrial event).   
+
+
+  
+
+
+Compilation is performed using the command
+
+gcc -o [path to testdir]/bgModel BG_inh_pathway.c rando2.h -lm  
+
+
+  
+
+
+Uses gcc compiler which is available on pretty much any *nix system  
+
+
+The argument -o [path to testdir]/bgModel is specifying the name of the destination executable  
+
+
+The arguments BG_inh_pathway.c rando2.h are the source file and header  
+
+
+The argument -lm is needed to link the math library  
+
+
+  
+
+
+The execute the program, you can first navigate to the test directory with  
+
+
+cd [path to testdir]
+
+And then execute with  
+
+
+./bgModel [opts...]  
+
+
+Where [opts...] is a list of options (each separated by spaces). If you just want spike train data (spikes per unit time) for each neural population, no options are needed.
+
+  
+
+
+List of options:  
+
+
+-h Outputs usage information describing these options
+
+-v Turns on verbose mode (flagverbose=1)
+
+-t#﻿ Where # is a number, sets the number of saved traces per population. By default, this value is 0 (NumberofTraces=0)
+
+-ns Spikes and traces are not saved, only mean frequencies (FlagSaveAllSpikes=0; NumberofTraces=0)  
+
+
+-s# Sets the seed for random number generation. By default, the seed is 1000.
+
+-n# Sets the current trial number. By default is set to 0 (Trialnumber=0)
+
+  
+
+
+The program outputs several files (see other notes for details):  
+
+
+popfreq#.dat : population mean frequencies over time  
+
+
+poptraces#.dat : traces for selected individual neurons in each population  
+
+
+pop#_#.dat : complete spike information for a given population  
+
+
+  
+
+
+All times are in milliseconds, all frequencies are in Hertz, and all voltages are in millivolts.  
+
