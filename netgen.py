@@ -1,5 +1,6 @@
 import random
 from subprocess import call
+import pickle
 
 import pandas as pd
 import numpy as np
@@ -39,7 +40,7 @@ def makeReceptor(name, preset={}, preset_overrides={}):
 
 
 def makePath(src, targ, receptor, preset=['all'], connectivity=1, efficacy=1,
-             STFT=0, STFP=0, name='', cmtype='con', conmatrix=[]):
+             STFT=0, STFP=0, STDT=0, STDP=0, name='', cmtype='con', conmatrix=[]):
     return {'src': src,
             'targ': targ,
             'name': name,
@@ -48,13 +49,15 @@ def makePath(src, targ, receptor, preset=['all'], connectivity=1, efficacy=1,
             'efficacy': efficacy,
             'STFT': STFT,
             'STFP': STFP,
+            'STDT': STDT,
+            'STDP': STDP,
             'preset': preset,
             'cmtype': cmtype,
             'conmatrix': conmatrix}
 
 
 def camP(connections, src, targ, receptor, preset=['all'], connectivity=1,
-         efficacy=1, STFT=0, STFP=0, name='', cmtype='con', conmatrix=[]):
+         efficacy=1, STFT=0, STFP=0, STDT=0, STDP=0, name='', cmtype='con', conmatrix=[]):
     maxlen = 1
     if type(receptor) is list:
         maxlen = len(receptor)
@@ -76,7 +79,7 @@ def camP(connections, src, targ, receptor, preset=['all'], connectivity=1,
 
     for rec, con, eff, pre in zip(receptor, connectivity, efficacy, preset):
         connections.append(makePath(src, targ, rec, pre,
-                                    con, eff, STFT, STFP, name, cmtype, conmatrix))
+                                    con, eff, STFT, STFP, STDT, STDP, name, cmtype, conmatrix))
 
 
 def makeHandle(name, targ, path, receptor=None, con=0, eff=0, preset=['syn'], conmatrix=[]):
@@ -88,6 +91,8 @@ def makeHandle(name, targ, path, receptor=None, con=0, eff=0, preset=['syn'], co
             'efficacy': eff,
             'STFT': 0,
             'STFP': 0,
+            'STDT': 0,
+            'STDP': 0,
             'preset': preset,
             'cmtype': 'con',
             'conmatrix': conmatrix}
@@ -209,6 +214,8 @@ def constructTracts(connection, source, popcopylist):
                     data['TargetReceptor'] = connection['receptor']
                     data['STFacilitationTau'] = connection['STFT']
                     data['STFacilitationP'] = connection['STFP']
+                    data['STDepressionTau'] = connection['STDT']
+                    data['STDepressionP'] = connection['STDP']
                     data['Connectivity'] = connection['connectivity']
                     if connection['cmtype'] == 'con':
                         data['Connectivity'] *= conmod
@@ -338,6 +345,12 @@ def writePro(eventlist):
     f.close()
 
 
+def writePickle(trialdata):
+    f = open('networkpickle.txt', 'w')
+    f.flush()
+    f.close()
+
+
 def compileAndRun(trials=1, offset=0):
     call('mkdir -p autotest', shell=True)
     call('gcc -o autotest/sim BG_inh_pathway_spedup.c rando2.h -lm', shell=True)
@@ -397,17 +410,17 @@ def describeBG():
     camP(c, 'STR', 'GPe', 'GABA', ['syn'], 1, 3)
     LIP = makePop("LIP", [GABA, [AMPA, 800, 2.1, 3],
                           NMDA], cd_pre, {'N': 240})
-    camP(c, 'LIP', 'Th', 'AMPA', ['syn'], 1, 0.9)
+    camP(c, 'LIP', 'Th', 'AMPA', ['syn'], 1, 0.7)
     camP(c, 'LIP', 'STR', 'AMPA', ['syn'], 1, 1.0)
     camP(c, 'LIP', 'LIPb', ['AMPA', 'NMDA'], ['all'], 1, [0.05, 0.165])
     camP(c, 'LIP', 'LIP', ['AMPA', 'NMDA'], ['syn'], 1, [0.085, 0.2805])
     camP(c, 'LIP', 'LIP', ['AMPA', 'NMDA'], ['anti'], 1, [0.043825, 0.14462])
     camP(c, 'LIP', 'LIPI', ['AMPA', 'NMDA'], ['all'], 1, [0.04, 0.13])
-    Th = makePop('Th', [GABA, [AMPA, 800, 0.19, 1.6], NMDA],
-                cd_pre)
+    Th = makePop('Th', [GABA, [AMPA, 800, 2, 3.2], NMDA],
+                 cd_pre)
     # camP(c, 'Th', 'Th', 'NMDA', ['syn'], 1, 1.5)
     # camP(c, 'Th', 'LIPI', 'NMDA', ['all'], 1, 0.15)
-    camP(c, 'Th', 'LIP', 'NMDA', ['syn'], 1, 0.32)
+    camP(c, 'Th', 'LIP', 'NMDA', ['syn'], 1, 0.32, STDP=0.45, STDT=600)
     action_channel = makeChannel('choices', [SNr, STNE, GPe, STR, LIP, Th])
     LIPb = makePop("LIPb", [GABA, [AMPA, 800, 2.1, 3],
                             NMDA], cd_pre, {'N': 1120})
@@ -549,7 +562,7 @@ def readTrialResult(trial):
     return(pd.DataFrame(labeled))
 
 
-def readAllTrialResults(trials, offset = 0):
+def readAllTrialResults(trials, offset=0):
     frames = []
     for trial in range(trials):
         frames.append(readTrialResult(trial + offset))
