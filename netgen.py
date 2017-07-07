@@ -5,6 +5,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 
+
 def makeChannel(dim='brain', pops=[], subchannels=[]):
     return {'dim': dim,
             'subchannels': subchannels,
@@ -78,7 +79,7 @@ def camP(connections, src, targ, receptor, preset=['all'], connectivity=1,
                                     con, eff, STFT, STFP, name, cmtype, conmatrix))
 
 
-def makeHandle(name, targ, path, receptor, con, eff, preset=['syn'], conmatrix=[]):
+def makeHandle(name, targ, path, receptor=None, con=0, eff=0, preset=['syn'], conmatrix=[]):
     return {'name': name,
             'targ': targ,
             'path': path,
@@ -241,7 +242,7 @@ def constructHandleCopies(dims, handletypes, poppaths, popcopylist):
             constructTracts(handlecopy, handlecopy, popcopylist)
             for tract in handlecopy['targets']:
                 for pop in popcopylist:
-                    if tract['target'] == pop['uniquename']:
+                    if tract['target'] == pop['uniquename'] and handlecopy['receptor'] != None:
                         pop['receptors'][handlecopy['receptor']
                                          ]['MeanExtCon'] = tract['data']['Connectivity']
                         pop['receptors'][handlecopy['receptor']
@@ -266,7 +267,9 @@ def constructEvents(handlevent, handles, eventlist):
 
 def printNetData(poppaths, popcopylist, handles):
     for handle in handles:
-        print(handle)
+        print(" ! ", handle['name'], handle['pathvals'])
+        for tract in handle['targets']:
+            print("  - ", tract['target'])
     for k, x in poppaths.items():
         print(" * ", k)
         for y in popcopylist:
@@ -335,13 +338,15 @@ def writePro(eventlist):
     f.close()
 
 
-def compileAndRun(trials=1):
+def compileAndRun(trials=1, offset=0):
     call('mkdir -p autotest', shell=True)
     call('gcc -o autotest/sim BG_inh_pathway_spedup.c rando2.h -lm', shell=True)
     call('mv network.conf autotest/network.conf', shell=True)
     call('mv network.pro autotest/network.pro', shell=True)
+    seed = 1000
     for trial in range(0, trials):
-        call('./sim -ns -n' + str(trial), shell=True, cwd='autotest')
+        call('./sim -ns -n' + str(trial + offset) + ' -s' + str(seed + trial + offset),
+             shell=True, cwd='autotest')
 
 
 def getCellDefaults():
@@ -375,7 +380,7 @@ def describeBG():
     NMDA = makeReceptor('NMDA', {'Tau': 100, 'RevPot': 0})
 
     SNr = makePop("SNr", [GABA, [AMPA, 800, 14, 1], NMDA], cd_pre)
-    camP(c, 'SNr', 'E', 'GABA', ['syn'], 1, 2.5)
+    camP(c, 'SNr', 'Th', 'GABA', ['syn'], 1, 0.09)
     STNE = makePop("STNE", [GABA, [AMPA, 800, 1.6, 5], NMDA], cd_pre,
                    {'N': 2500, 'g_T': 0.06})
     camP(c, 'STNE', 'GPe', ['AMPA', 'NMDA'], ['syn'], 0.05, [0.05, 2])
@@ -383,32 +388,27 @@ def describeBG():
     GPe = makePop("GPe", [[GABA, 2000, 2, 1], [AMPA, 800, 3, 4], NMDA], cd_pre,
                   {'N': 2500, 'tauhm': 10, 'g_T': 0.01})
     camP(c, 'GPe', 'GPe', 'GABA', ['syn'], 0.05, 1.5)
-    camP(c, 'GPe', 'STNE', 'GABA', ['syn'], 0.02, 0.6)
-    camP(c, 'GPe', 'SNr', 'GABA', ['syn'], 1, 0.08)
+    camP(c, 'GPe', 'STNE', 'GABA', ['syn'], 0.02, 0.8)
+    camP(c, 'GPe', 'SNr', 'GABA', ['syn'], 1, 0.04)
     camP(c, 'GPe', 'STR', 'GABA', ['syn'], 1, 0.03, name='arkipallidal')
     STR = makePop("STR", [GABA, [AMPA, 800, 4, 1], NMDA], cd_pre)
     camP(c, 'STR', 'STR', 'GABA', ['syn'], 1, 1)
-    camP(c, 'STR', 'SNr', 'GABA', ['syn'], 1, 3, name='direct')
-    camP(c, 'STR', 'GPe', 'GABA', ['syn'], 1, 4)
+    camP(c, 'STR', 'SNr', 'GABA', ['syn'], 1, 2.4, name='direct')
+    camP(c, 'STR', 'GPe', 'GABA', ['syn'], 1, 3)
     LIP = makePop("LIP", [GABA, [AMPA, 800, 2.1, 3],
                           NMDA], cd_pre, {'N': 240})
-    camP(c, 'LIP', 'E', 'AMPA', ['syn'], 1, 3.5)
-    camP(c, 'LIP', 'STR', 'AMPA', ['syn'], 1, 3.0)
+    camP(c, 'LIP', 'Th', 'AMPA', ['syn'], 1, 0.9)
+    camP(c, 'LIP', 'STR', 'AMPA', ['syn'], 1, 1.0)
     camP(c, 'LIP', 'LIPb', ['AMPA', 'NMDA'], ['all'], 1, [0.05, 0.165])
     camP(c, 'LIP', 'LIP', ['AMPA', 'NMDA'], ['syn'], 1, [0.085, 0.2805])
     camP(c, 'LIP', 'LIP', ['AMPA', 'NMDA'], ['anti'], 1, [0.043825, 0.14462])
     camP(c, 'LIP', 'LIPI', ['AMPA', 'NMDA'], ['all'], 1, [0.04, 0.13])
-    E = makePop('E', [GABA, [AMPA, 800, 0.19, 1.6], NMDA],
-                cd_pre, {'Alpha_ca': 2, 'Tau_ca': 200})
-    camP(c, 'E', 'E', 'NMDA', ['syn'], 1, 1.5)
-    camP(c, 'E', 'I0', 'NMDA', ['all'], 1, 0.7, 1000, 0.15)
-    camP(c, 'E', 'LIPI', 'NMDA', ['all'], 1, 0.15)
-    camP(c, 'E', 'LIP', 'NMDA', ['all'], 1, 0.05)
-    action_channel = makeChannel('choices', [SNr, STNE, GPe, STR, LIP, E])
-
-    I0 = makePop("I0", [GABA, [AMPA, 800, 2, 1.6], NMDA],
-                 cd_pre, {'C': 0.2, 'Taum': 10})
-    camP(c, 'I0', 'E', 'GABA', ['all'], 1, 2.5)
+    Th = makePop('Th', [GABA, [AMPA, 800, 0.19, 1.6], NMDA],
+                cd_pre)
+    # camP(c, 'Th', 'Th', 'NMDA', ['syn'], 1, 1.5)
+    # camP(c, 'Th', 'LIPI', 'NMDA', ['all'], 1, 0.15)
+    camP(c, 'Th', 'LIP', 'NMDA', ['syn'], 1, 0.32)
+    action_channel = makeChannel('choices', [SNr, STNE, GPe, STR, LIP, Th])
     LIPb = makePop("LIPb", [GABA, [AMPA, 800, 2.1, 3],
                             NMDA], cd_pre, {'N': 1120})
     camP(c, 'LIPb', 'LIPb', ['AMPA', 'NMDA'], ['all'], 1, [0.05, 0.165])
@@ -419,7 +419,7 @@ def describeBG():
     camP(c, 'LIPI', 'LIPb', 'GABA', ['all'], 1, 1.3)
     camP(c, 'LIPI', 'LIP', 'GABA', ['all'], 1, 1.3)
     camP(c, 'LIPI', 'LIPI', 'GABA', ['all'], 1, 1)
-    brain = makeChannel('brain', [I0, LIPb, LIPI], [action_channel])
+    brain = makeChannel('brain', [LIPb, LIPI], [action_channel])
 
     return (brain, c, h)
 
@@ -447,21 +447,25 @@ def describeSubcircuit():
     return (brain, c, h)
 
 
-def mcInfo():
+def mcInfo(**kwargs):
     dims = {'brain': 1, 'choices': 2}
 
     hts = []
     hts.append(makeHandle('sensory', 'LIP', ['choices'], 'AMPA', 800, 2.1))
     hts.append(makeHandle('cancel', 'STNE', ['choices'], 'AMPA', 800, 1.6))
+    hts.append(makeHandle('out', 'Th', ['choices']))
 
     hes = []
     hes.append(makeHandleEvent('reset', 0, 'sensory', [], 3))
-    hes.append(makeHandleEvent('wrong stimulus', 100, 'sensory', [], 3.0372))
-    hes.append(makeHandleEvent('right stimulus', 100, 'sensory', [0], 3.0884))
+    hes.append(makeHandleEvent('wrong stimulus', 200, 'sensory', [], 3.0772))
+    hes.append(makeHandleEvent('right stimulus', 200, 'sensory', [0], 3.0884))
 
-    timelimit = 800
+    houts = []
+    houts.append(makeHandleEvent('decision made', 200, 'out', [], 20))
 
-    return (dims, hts, hes, timelimit)
+    timelimit = 1300
+
+    return (dims, hts, hes, houts, timelimit)
 
 
 def modifyNetwork(popcopylist, connections, **kwargs):
@@ -481,12 +485,12 @@ def modifyNetwork(popcopylist, connections, **kwargs):
                 path['efficacy'] *= value
 
 
-def configureExperiment():
+def configureExperiment(**kwargs):
     # get network description
     brain, connections, handletypes = describeBG()
 
     # get description relevant to this experiment and merge
-    dims, hts, handleeventlist, timelimit = mcInfo()
+    dims, hts, handleeventlist, outputevents, timelimit = mcInfo(**kwargs)
     for ht in hts:
         handletypes.append(ht)
 
@@ -495,7 +499,7 @@ def configureExperiment():
     popcopylist = constructPopCopies(dims, brain, poppaths)
 
     # modify network
-    modifyNetwork(popcopylist, connections, popscale=0.1, arkipallidal=1)
+    modifyNetwork(popcopylist, connections, **kwargs)
 
     # create all network connections
     handles = constructHandleCopies(dims, handletypes, poppaths, popcopylist)
@@ -513,8 +517,18 @@ def configureExperiment():
     writeConf(popcopylist)
     writePro(eventlist)
 
+    trialdata = {'dims': dims,
+                 'poppaths': poppaths,
+                 'popcopylist': popcopylist,
+                 'handles': handles,
+                 'eventlist': eventlist,
+                 'outputevents': outputevents}
+    trialdata.update(kwargs)
+    return trialdata
+
+
 def readTrialResult(trial):
-    f = open('autotest/popfreqs' + str(trial) + '.dat',"r")
+    f = open('autotest/popfreqs' + str(trial) + '.dat', "r")
     columns = []
     rawdata = []
     lines = f.readlines()
@@ -525,19 +539,48 @@ def readTrialResult(trial):
                 rawdata.append([])
         if i > 0:
             data = lines[i].strip().split("\t")
-            for colnum, val in zip(range(len(columns)),data):
-                rawdata[colnum].append(val)
+            if(float(data[0]) > 200):
+                for colnum, val in zip(range(len(columns)), data):
+                    rawdata[colnum].append(val)
     labeled = {}
     for colnum in range(len(columns)):
         labeled[columns[colnum]] = np.array(rawdata[colnum], dtype='float32')
 
     return(pd.DataFrame(labeled))
 
-def readAllTrialResults(trials):
+
+def readAllTrialResults(trials, offset = 0):
     frames = []
     for trial in range(trials):
-        frames.append(readTrialResult(trial))
+        frames.append(readTrialResult(trial + offset))
+    return frames
 
-configureExperiment()
-compileAndRun(0)
-readAllTrialResults(0)
+
+def findOutputs(df, trialdata):
+    outputs = {}
+    for handlevent in trialdata['outputevents']:
+        output = {'time': None,
+                  'start': handlevent['time'],
+                  'delay': None,
+                  'pathvals': None,
+                  'threshold': handlevent['freq']}
+        outputs[handlevent['label']] = output
+        for handle in trialdata['handles']:
+            if handle['name'] == handlevent['hname']:
+                valid = True
+                for spec, val in zip(handlevent['hpath'], handle['pathvals']):
+                    if spec != -1 and spec != val:
+                        valid = False
+                if valid:
+                    for tract in handle['targets']:
+                        for i in range(0, df.shape[0]):
+                            curtime = df.at[i, 'Time (ms)']
+                            if curtime < output['start']:
+                                continue
+                            if df.at[i, tract['target']] >= output['threshold']:
+                                if output['time'] == None or curtime < output['time']:
+                                    output['time'] = curtime
+                                    output['delay'] = curtime - output['start']
+                                    output['pathvals'] = handle['pathvals']
+                                break
+    return outputs
