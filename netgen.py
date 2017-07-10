@@ -412,13 +412,13 @@ def describeBG(**kwargs):
     AMPA = makeReceptor('AMPA', {'Tau': 2, 'RevPot': 0})
     NMDA = makeReceptor('NMDA', {'Tau': 100, 'RevPot': 0})
 
-    SNr = makePop("SNr", [GABA, [AMPA, 800, SNrExtEff, 0.8], NMDA], cd_pre)
+    SNr = makePop("SNr", [GABA, [AMPA, 800, 14, 0.8], NMDA], cd_pre)
     camP(c, 'SNr', 'Th', 'GABA', ['syn'], 1, 0.09)
     STNE = makePop("STNE", [GABA, [AMPA, 800, 1.6, 4], NMDA], cd_pre,
                    {'N': 2500, 'g_T': 0.06})
     camP(c, 'STNE', 'GPe', ['AMPA', 'NMDA'], ['syn'], 0.05, [0.05, 2])
     camP(c, 'STNE', 'SNr', 'NMDA', ['syn'], 1, 0.06)
-    GPe = makePop("GPe", [[GABA, 2000, 2, 2], [AMPA, 800, 2, 4], NMDA], cd_pre,
+    GPe = makePop("GPe", [[GABA, 2000, 2, 1], [AMPA, 800, 3, 4], NMDA], cd_pre,
                   {'N': 2500, 'tauhm': 10, 'g_T': 0.01})
     camP(c, 'GPe', 'GPe', 'GABA', ['syn'], 0.05, 1.5)
     camP(c, 'GPe', 'STNE', 'GABA', ['syn'], 0.02, 0.8)
@@ -489,7 +489,7 @@ def mcInfo(**kwargs):
     hts.append(makeHandle('out', 'Th', ['choices']))
 
     hes = []
-    hes.append(makeHandleEvent('reset', 0, 'sensory', [], 0))
+    hes.append(makeHandleEvent('reset', 0, 'sensory', [], 2))
     hes.append(makeHandleEvent('wrong stimulus', 600, 'sensory', [], 3.0772))
     hes.append(makeHandleEvent('right stimulus', 600, 'sensory', [0], 3.2884))
 
