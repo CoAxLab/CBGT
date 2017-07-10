@@ -258,17 +258,17 @@ def constructHandleCopies(dims, handletypes, poppaths, popcopylist):
     return handles
 
 
-def constructEvents(handlevent, handles, eventlist):
+def constructEvents(handleevent, handles, eventlist):
     for handle in handles:
-        if handle['name'] == handlevent['hname']:
+        if handle['name'] == handleevent['hname']:
             valid = True
-            for spec, val in zip(handlevent['hpath'], handle['pathvals']):
+            for spec, val in zip(handleevent['hpath'], handle['pathvals']):
                 if spec != -1 and spec != val:
                     valid = False
             if valid:
                 for tract in handle['targets']:
-                    event = makeEvent(handlevent['time'], 'ChangeExtFreq', handlevent['label'],
-                                      tract['target'], tract['data']['TargetReceptor'], handlevent['freq'])
+                    event = makeEvent(handleevent['time'], 'ChangeExtFreq', handleevent['label'],
+                                      tract['target'], tract['data']['TargetReceptor'], handleevent['freq'])
                     eventlist.append(event)
 
 
@@ -346,20 +346,33 @@ def writePro(eventlist):
 
 
 def writePickle(trialdata):
-    f = open('networkpickle.txt', 'w')
+    f = open('network.pickle', 'wb')
+    pickle.dump(trialdata, f)
     f.flush()
     f.close()
 
 
-def compileAndRun(trials=1, offset=0):
-    call('mkdir -p autotest', shell=True)
-    call('gcc -o autotest/sim BG_inh_pathway_spedup.c rando2.h -lm', shell=True)
-    call('mv network.conf autotest/network.conf', shell=True)
-    call('mv network.pro autotest/network.pro', shell=True)
+def compileAndRun(trials=1, offset=0, sweepnumber=0):
+    directory = getDirectory(sweepnumber)
+    call('gcc -o ' + directory +
+         '/sim BG_inh_pathway_spedup.c rando2.h -lm', shell=True)
     seed = 1000
     for trial in range(0, trials):
         call('./sim -ns -n' + str(trial + offset) + ' -s' + str(seed + trial + offset),
              shell=True, cwd='autotest')
+
+
+def compileAndRunSweep(trials=1, offset=0, sweepcount=1):
+    for sweepnumber in range(0, sweepcount):
+        directory = getDirectory(sweepnumber)
+        call('gcc -o ' + directory +
+             '/sim BG_inh_pathway_spedup.c rando2.h -lm', shell=True)
+    seed = 1000
+    for trial in range(0, trials):
+        for sweepnumber in range(0, sweepcount):
+            directory = getDirectory(sweepnumber)
+            call('./sim -ns -n' + str(trial + offset) + ' -s' + str(seed + trial + offset),
+                 shell=True, cwd=directory)
 
 
 def getCellDefaults():
@@ -382,7 +395,14 @@ def getCellDefaults():
             'g_T': 0}
 
 
-def describeBG():
+def describeBG(**kwargs):
+    ThExtEff = 2
+    if 'ThExtEff' in kwargs:
+        ThExtEff = kwargs['ThExtEff']
+    SNrExtEff = 6
+    if 'SNrExtEff' in kwargs:
+        SNrExtEff = kwargs['SNrExtEff']
+
     c = []
     h = []
 
@@ -392,34 +412,34 @@ def describeBG():
     AMPA = makeReceptor('AMPA', {'Tau': 2, 'RevPot': 0})
     NMDA = makeReceptor('NMDA', {'Tau': 100, 'RevPot': 0})
 
-    SNr = makePop("SNr", [GABA, [AMPA, 800, 14, 1], NMDA], cd_pre)
+    SNr = makePop("SNr", [GABA, [AMPA, 800, SNrExtEff, 0.8], NMDA], cd_pre)
     camP(c, 'SNr', 'Th', 'GABA', ['syn'], 1, 0.09)
-    STNE = makePop("STNE", [GABA, [AMPA, 800, 1.6, 5], NMDA], cd_pre,
+    STNE = makePop("STNE", [GABA, [AMPA, 800, 1.6, 4], NMDA], cd_pre,
                    {'N': 2500, 'g_T': 0.06})
     camP(c, 'STNE', 'GPe', ['AMPA', 'NMDA'], ['syn'], 0.05, [0.05, 2])
     camP(c, 'STNE', 'SNr', 'NMDA', ['syn'], 1, 0.06)
-    GPe = makePop("GPe", [[GABA, 2000, 2, 1], [AMPA, 800, 3, 4], NMDA], cd_pre,
+    GPe = makePop("GPe", [[GABA, 2000, 2, 2], [AMPA, 800, 2, 4], NMDA], cd_pre,
                   {'N': 2500, 'tauhm': 10, 'g_T': 0.01})
     camP(c, 'GPe', 'GPe', 'GABA', ['syn'], 0.05, 1.5)
     camP(c, 'GPe', 'STNE', 'GABA', ['syn'], 0.02, 0.8)
     camP(c, 'GPe', 'SNr', 'GABA', ['syn'], 1, 0.04)
     camP(c, 'GPe', 'STR', 'GABA', ['syn'], 1, 0.03, name='arkipallidal')
-    STR = makePop("STR", [GABA, [AMPA, 800, 4, 1], NMDA], cd_pre)
+    STR = makePop("STR", [GABA, [AMPA, 800, 4, 1.6], NMDA], cd_pre)
     camP(c, 'STR', 'STR', 'GABA', ['syn'], 1, 1)
     camP(c, 'STR', 'SNr', 'GABA', ['syn'], 1, 2.4, name='direct')
     camP(c, 'STR', 'GPe', 'GABA', ['syn'], 1, 3)
-    LIP = makePop("LIP", [GABA, [AMPA, 800, 2.1, 3],
+    LIP = makePop("LIP", [GABA, [AMPA, 800, 2.0, 3],
                           NMDA], cd_pre, {'N': 240})
-    camP(c, 'LIP', 'Th', 'AMPA', ['syn'], 1, 0.7)
+    camP(c, 'LIP', 'Th', 'AMPA', ['syn'], 1, 0)
     camP(c, 'LIP', 'STR', 'AMPA', ['syn'], 1, 1.0)
     camP(c, 'LIP', 'LIPb', ['AMPA', 'NMDA'], ['all'], 1, [0.05, 0.165])
     camP(c, 'LIP', 'LIP', ['AMPA', 'NMDA'], ['syn'], 1, [0.085, 0.2805])
     camP(c, 'LIP', 'LIP', ['AMPA', 'NMDA'], ['anti'], 1, [0.043825, 0.14462])
     camP(c, 'LIP', 'LIPI', ['AMPA', 'NMDA'], ['all'], 1, [0.04, 0.13])
-    Th = makePop('Th', [GABA, [AMPA, 800, 2, 3.2], NMDA],
+    Th = makePop('Th', [GABA, [AMPA, 800, ThExtEff, 3.2], NMDA],
                  cd_pre)
     # camP(c, 'Th', 'Th', 'NMDA', ['syn'], 1, 1.5)
-    # camP(c, 'Th', 'LIPI', 'NMDA', ['all'], 1, 0.15)
+    # camP(c, 'Th', 'LIPI', 'NMDA', ['all'], 1, 0.32, STDP=0.45, STDT=600)
     camP(c, 'Th', 'LIP', 'NMDA', ['syn'], 1, 0.32, STDP=0.45, STDT=600)
     action_channel = makeChannel('choices', [SNr, STNE, GPe, STR, LIP, Th])
     LIPb = makePop("LIPb", [GABA, [AMPA, 800, 2.1, 3],
@@ -437,7 +457,7 @@ def describeBG():
     return (brain, c, h)
 
 
-def describeSubcircuit():
+def describeSubcircuit(**kwargs):
     c = []
     h = []
 
@@ -469,12 +489,12 @@ def mcInfo(**kwargs):
     hts.append(makeHandle('out', 'Th', ['choices']))
 
     hes = []
-    hes.append(makeHandleEvent('reset', 0, 'sensory', [], 3))
-    hes.append(makeHandleEvent('wrong stimulus', 200, 'sensory', [], 3.0772))
-    hes.append(makeHandleEvent('right stimulus', 200, 'sensory', [0], 3.0884))
+    hes.append(makeHandleEvent('reset', 0, 'sensory', [], 0))
+    hes.append(makeHandleEvent('wrong stimulus', 600, 'sensory', [], 3.0772))
+    hes.append(makeHandleEvent('right stimulus', 600, 'sensory', [0], 3.2884))
 
     houts = []
-    houts.append(makeHandleEvent('decision made', 200, 'out', [], 20))
+    houts.append(makeHandleEvent('decision made', 600, 'out', [], 20))
 
     timelimit = 1300
 
@@ -500,7 +520,7 @@ def modifyNetwork(popcopylist, connections, **kwargs):
 
 def configureExperiment(**kwargs):
     # get network description
-    brain, connections, handletypes = describeBG()
+    brain, connections, handletypes = describeBG(**kwargs)
 
     # get description relevant to this experiment and merge
     dims, hts, handleeventlist, outputevents, timelimit = mcInfo(**kwargs)
@@ -525,7 +545,7 @@ def configureExperiment(**kwargs):
     eventlist.append(makeEvent(timelimit, 'EndTrial'))
 
     # write files
-    printNetData(poppaths, popcopylist, handles)
+    # printNetData(poppaths, popcopylist, handles)
     writeCsv(popcopylist)
     writeConf(popcopylist)
     writePro(eventlist)
@@ -537,11 +557,15 @@ def configureExperiment(**kwargs):
                  'eventlist': eventlist,
                  'outputevents': outputevents}
     trialdata.update(kwargs)
+
+    writePickle(trialdata)
+
     return trialdata
 
 
-def readTrialResult(trial):
-    f = open('autotest/popfreqs' + str(trial) + '.dat', "r")
+def readTrialResult(sweepnumber, trial):
+    directory = getDirectory(sweepnumber)
+    f = open(directory + '/popfreqs' + str(trial) + '.dat', "r")
     columns = []
     rawdata = []
     lines = f.readlines()
@@ -552,36 +576,46 @@ def readTrialResult(trial):
                 rawdata.append([])
         if i > 0:
             data = lines[i].strip().split("\t")
-            if(float(data[0]) > 200):
+            if(float(data[0]) > 2):
                 for colnum, val in zip(range(len(columns)), data):
                     rawdata[colnum].append(val)
     labeled = {}
     for colnum in range(len(columns)):
         labeled[columns[colnum]] = np.array(rawdata[colnum], dtype='float32')
 
-    return(pd.DataFrame(labeled))
+    g = open(directory + '/network.pickle', 'rb')
+    trialdata = pickle.load(g)
+
+    trialdata['popfreqs'] = pd.DataFrame(labeled)
+
+    return(trialdata)
 
 
-def readAllTrialResults(trials, offset=0):
-    frames = []
-    for trial in range(trials):
-        frames.append(readTrialResult(trial + offset))
-    return frames
+def readAllTrialResults(trials, offset=0, sweepcount=1):
+    allresults = []
+    for sweepnumber in range(sweepcount):
+        results = []
+        for trial in range(trials):
+            results.append(readTrialResult(sweepnumber, trial + offset))
+        allresults.append(results)
+    return allresults
 
 
-def findOutputs(df, trialdata):
+def findOutputs(trialdata, df=None):
+    if df is None:
+        df = trialdata['popfreqs']
     outputs = {}
-    for handlevent in trialdata['outputevents']:
+    for handleevent in trialdata['outputevents']:
         output = {'time': None,
-                  'start': handlevent['time'],
+                  'start': handleevent['time'],
                   'delay': None,
                   'pathvals': None,
-                  'threshold': handlevent['freq']}
-        outputs[handlevent['label']] = output
+                  'threshold': handleevent['freq']}
+        outputs[handleevent['label']] = output
         for handle in trialdata['handles']:
-            if handle['name'] == handlevent['hname']:
+            if handle['name'] == handleevent['hname']:
                 valid = True
-                for spec, val in zip(handlevent['hpath'], handle['pathvals']):
+                for spec, val in zip(handleevent['hpath'], handle['pathvals']):
                     if spec != -1 and spec != val:
                         valid = False
                 if valid:
@@ -597,3 +631,24 @@ def findOutputs(df, trialdata):
                                     output['pathvals'] = handle['pathvals']
                                 break
     return outputs
+
+
+def getDirectory(sweepnumber=0):
+    return 'autotest' + str(sweepnumber)
+
+
+def configureSweep(sc=0, **kwargs):
+    for key, value in kwargs.items():
+        if type(value) is list:
+            selected = {}
+            selected.update(kwargs)
+            for opt in value:
+                selected[key] = opt
+                sc = configureSweep(sc, **selected)
+            return sc
+    configureExperiment(**kwargs)
+    directory = getDirectory(sc)
+    call('mkdir -p ' + directory, shell=True)
+    for filename in ['network.conf', 'network.pro', 'network.pickle']:
+        call('mv ' + filename + ' ' + directory + '/' + filename, shell=True)
+    return sc + 1
