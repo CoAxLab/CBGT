@@ -98,15 +98,16 @@ def makeHandle(name, targ, path, receptor=None, con=0, eff=0, preset=['syn'], co
             'conmatrix': conmatrix}
 
 
-def makeHandleEvent(label, time, hname, hpath, freq):
+def makeHandleEvent(label, time, hname, hpath, freq, etype='ChangeExtFreq'):
     return {'label': label,
             'time': time,
             'hname': hname,
             'hpath': hpath,
-            'freq': freq}
+            'freq': freq,
+            'etype': etype}
 
 
-def makeEvent(time, etype, label='', pop='', receptor='', freq=0):
+def makeEvent(time, etype, label='', pop='', freq=0, receptor=''):
     return {'time': time,
             'etype': etype,
             'label': label,
@@ -267,8 +268,12 @@ def constructEvents(handleevent, handles, eventlist):
                     valid = False
             if valid:
                 for tract in handle['targets']:
-                    event = makeEvent(handleevent['time'], 'ChangeExtFreq', handleevent['label'],
-                                      tract['target'], tract['data']['TargetReceptor'], handleevent['freq'])
+                    if handleevent['etype'] == 'ChangeExtFreq':
+                        event = makeEvent(handleevent['time'], 'ChangeExtFreq', handleevent['label'],
+                                          tract['target'], handleevent['freq'], tract['data']['TargetReceptor'])
+                    if handleevent['etype'] == 'EndTrial':
+                        event = makeEvent(handleevent['time'], 'EndTrial', handleevent['label'],
+                                          tract['target'], handleevent['freq'])
                     eventlist.append(event)
 
 
@@ -338,7 +343,7 @@ def writePro(eventlist):
             f.write('Population: ' + event['pop'] + '\n')
         if event['receptor'] != '':
             f.write('Receptor: ' + event['receptor'] + '\n')
-        if event['etype'] == 'ChangeExtFreq':
+        if event['pop'] != '':
             f.write('FreqExt=' + str(event['freq']) + '\n')
         f.write('\nEndEvent\n\n')
     f.flush()
@@ -486,6 +491,10 @@ def mcInfo(**kwargs):
     if 'Stim' in kwargs:
         Stim = kwargs['Stim']
 
+    Start = 300
+    if 'Start' in kwargs:
+        Start = kwargs['Start']
+
     StimDelta = 0.1
     if 'StimDelta' in kwargs:
         StimDelta = kwargs['StimDelta']
@@ -499,14 +508,17 @@ def mcInfo(**kwargs):
 
     hes = []
     hes.append(makeHandleEvent('reset', 0, 'sensory', [], Stim))
-    hes.append(makeHandleEvent('wrong stimulus', 300, 'sensory', [], Stim))
-    hes.append(makeHandleEvent('right stimulus', 300,
-                               'sensory', [0], Stim + StimDelta))
+    hes.append(makeHandleEvent('wrong stimulus',
+                               Start, 'sensory', [], Stim + StimDelta))
+    hes.append(makeHandleEvent('right stimulus', Start,
+                               'sensory', [0], Stim + 0.25))
+    hes.append(makeHandleEvent('dynamic cutoff',
+                               Start, 'out', [], 15, 'EndTrial'))
 
     houts = []
-    houts.append(makeHandleEvent('decision made', 300, 'out', [], 15))
+    houts.append(makeHandleEvent('decision made', Start, 'out', [], 15))
 
-    timelimit = 600
+    timelimit = 550
 
     return (dims, hts, hes, houts, timelimit)
 

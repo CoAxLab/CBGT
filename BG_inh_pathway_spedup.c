@@ -5,6 +5,8 @@
 //
 // modified from S. Fusi and CC LO
 //
+// used with permission and modified by M Clapp
+//
 //###########################################
 
 
@@ -341,8 +343,12 @@ typedef struct {
 int NEvents=0;
 int CEvent; // current event
 float NextEventTime=0.;
-float TrialDuration=1000.; // in ms
 EventDescr Events[MAXEVENTS];
+
+// dynamic cutoff
+int NCutoffs=0;
+int CCutoff;
+EventDescr Cutoffs[MAXEVENTS];
 
 // Multitrial version:
 
@@ -904,6 +910,7 @@ int ParseProtocol() {
 
   line = -1;
   NEvents = 0;
+  NCutoffs = 0;
 
   while (fgets(buf, 1000, devprot) != NULL) {
     line++;
@@ -932,6 +939,11 @@ int ParseProtocol() {
     }
 
     if (strncmp(s, "EndEvent", 8) == 0) {
+      if (Events[NEvents].Type == ENDOFTRIAL) {
+        // dynamic cutoff
+        Cutoffs[NCutoffs] = Events[NEvents];
+        NCutoffs++;
+      }
       eventflag = 0;
       NEvents++;
       continue;
@@ -954,7 +966,7 @@ int ParseProtocol() {
       }
       if (strncmp(s, "EndTrial", 8) == 0) {
         Events[NEvents].Type = ENDOFTRIAL;
-        TrialDuration = Events[NEvents].ETime;
+        Events[NEvents].PopNumber = -1;
       }
       continue;
     }
@@ -1799,9 +1811,17 @@ int SaveSpikes(int eventflag) {
     timelastevent = Time;
   }
 
+  // dynamic cutoff
+  int res = 1;
+  if ((counter % STEPSFORSAVINGFREQS) == 0) {
+    for (int co = 0; co < CCutoff; co++) {
+      if (meanfreqs[Cutoffs[co].PopNumber] > Cutoffs[co].FreqExt) {
+        res = 0;
+      }
+    }
+  }
   counter++;
-
-  return 1;
+  return res;
 }
 
 int SaveTraces() {
@@ -1855,7 +1875,11 @@ int HandleEvent(void) {
   float efficacy, MeanEff;
 
   if (Events[CEvent].Type == ENDOFTRIAL) {
-    return 0;
+    if (Events[CEvent].PopNumber < 0) {
+      return 0;
+    }
+    // dynamic cutoff
+    CCutoff++;
   }
 
   if (Events[CEvent].Type == RESETEXTFREQ) {
@@ -2021,6 +2045,8 @@ int main(int argc, char *argv[])
     //{
     report("Trial #\%d\n=====================================================================\n",Trialnumber);
     CEvent=0;
+    // dynamic cutoff
+    CCutoff=0;
     NextEventTime=Events[CEvent].ETime;
     runflag=1;
 
@@ -2032,15 +2058,15 @@ int main(int argc, char *argv[])
     {
       SimulateOneTimeStep();
       // handle all the events
-      if(Time>=NextEventTime) {
-        SaveSpikes(1);
-        while(Time>=NextEventTime)
+      if(Time >= NextEventTime) {
+        runflag = SaveSpikes(1);
+        while(Time >= NextEventTime)
         {
-          runflag=HandleEvent();
-          if(runflag==0) break;
+          runflag = HandleEvent();
+          if (runflag == 0) break;
         }
       }
-      else SaveSpikes(0);
+      else runflag = SaveSpikes(0);
 
       SaveTraces();
     }
