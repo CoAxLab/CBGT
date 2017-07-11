@@ -490,7 +490,6 @@ def mcInfo(**kwargs):
     if 'StimDelta' in kwargs:
         StimDelta = kwargs['StimDelta']
 
-
     dims = {'brain': 1, 'choices': 2}
 
     hts = []
@@ -501,7 +500,8 @@ def mcInfo(**kwargs):
     hes = []
     hes.append(makeHandleEvent('reset', 0, 'sensory', [], Stim))
     hes.append(makeHandleEvent('wrong stimulus', 300, 'sensory', [], Stim))
-    hes.append(makeHandleEvent('right stimulus', 300, 'sensory', [0], Stim + StimDelta))
+    hes.append(makeHandleEvent('right stimulus', 300,
+                               'sensory', [0], Stim + StimDelta))
 
     houts = []
     houts.append(makeHandleEvent('decision made', 300, 'out', [], 15))
