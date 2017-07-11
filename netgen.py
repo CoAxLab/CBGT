@@ -412,13 +412,13 @@ def describeBG(**kwargs):
     AMPA = makeReceptor('AMPA', {'Tau': 2, 'RevPot': 0})
     NMDA = makeReceptor('NMDA', {'Tau': 100, 'RevPot': 0})
 
-    SNr = makePop("SNr", [GABA, [AMPA, 800, 14, 0.8], NMDA], cd_pre)
+    SNr = makePop("SNr", [GABA, [AMPA, 800, 6, 0.8], NMDA], cd_pre)
     camP(c, 'SNr', 'Th', 'GABA', ['syn'], 1, 0.09)
     STNE = makePop("STNE", [GABA, [AMPA, 800, 1.6, 4], NMDA], cd_pre,
                    {'N': 2500, 'g_T': 0.06})
     camP(c, 'STNE', 'GPe', ['AMPA', 'NMDA'], ['syn'], 0.05, [0.05, 2])
     camP(c, 'STNE', 'SNr', 'NMDA', ['syn'], 1, 0.06)
-    GPe = makePop("GPe", [[GABA, 2000, 2, 1], [AMPA, 800, 3, 4], NMDA], cd_pre,
+    GPe = makePop("GPe", [[GABA, 2000, 2, 2], [AMPA, 800, 2, 4], NMDA], cd_pre,
                   {'N': 2500, 'tauhm': 10, 'g_T': 0.01})
     camP(c, 'GPe', 'GPe', 'GABA', ['syn'], 0.05, 1.5)
     camP(c, 'GPe', 'STNE', 'GABA', ['syn'], 0.02, 0.8)
@@ -442,7 +442,7 @@ def describeBG(**kwargs):
     # camP(c, 'Th', 'LIPI', 'NMDA', ['all'], 1, 0.32, STDP=0.45, STDT=600)
     camP(c, 'Th', 'LIP', 'NMDA', ['syn'], 1, 0.32, STDP=0.45, STDT=600)
     action_channel = makeChannel('choices', [SNr, STNE, GPe, STR, LIP, Th])
-    LIPb = makePop("LIPb", [GABA, [AMPA, 800, 2.1, 3],
+    LIPb = makePop("LIPb", [GABA, [AMPA, 800, 2.0, 3],
                             NMDA], cd_pre, {'N': 1120})
     camP(c, 'LIPb', 'LIPb', ['AMPA', 'NMDA'], ['all'], 1, [0.05, 0.165])
     camP(c, 'LIPb', 'LIP', ['AMPA', 'NMDA'], ['all'], 1, [0.043825, 0.14462])
@@ -481,22 +481,32 @@ def describeSubcircuit(**kwargs):
 
 
 def mcInfo(**kwargs):
+
+    Stim = 3
+    if 'Stim' in kwargs:
+        Stim = kwargs['Stim']
+
+    StimDelta = 0.1
+    if 'StimDelta' in kwargs:
+        StimDelta = kwargs['StimDelta']
+
+
     dims = {'brain': 1, 'choices': 2}
 
     hts = []
     hts.append(makeHandle('sensory', 'LIP', ['choices'], 'AMPA', 800, 2.1))
     hts.append(makeHandle('cancel', 'STNE', ['choices'], 'AMPA', 800, 1.6))
-    hts.append(makeHandle('out', 'Th', ['choices']))
+    hts.append(makeHandle('out', 'LIP', ['choices']))
 
     hes = []
-    hes.append(makeHandleEvent('reset', 0, 'sensory', [], 2))
-    hes.append(makeHandleEvent('wrong stimulus', 600, 'sensory', [], 3.0772))
-    hes.append(makeHandleEvent('right stimulus', 600, 'sensory', [0], 3.2884))
+    hes.append(makeHandleEvent('reset', 0, 'sensory', [], Stim))
+    hes.append(makeHandleEvent('wrong stimulus', 300, 'sensory', [], Stim))
+    hes.append(makeHandleEvent('right stimulus', 300, 'sensory', [0], Stim + StimDelta))
 
     houts = []
-    houts.append(makeHandleEvent('decision made', 600, 'out', [], 20))
+    houts.append(makeHandleEvent('decision made', 300, 'out', [], 15))
 
-    timelimit = 1300
+    timelimit = 600
 
     return (dims, hts, hes, houts, timelimit)
 
@@ -576,7 +586,7 @@ def readTrialResult(sweepnumber, trial):
                 rawdata.append([])
         if i > 0:
             data = lines[i].strip().split("\t")
-            if(float(data[0]) > 2):
+            if(float(data[0]) > 300):
                 for colnum, val in zip(range(len(columns)), data):
                     rawdata[colnum].append(val)
     labeled = {}
