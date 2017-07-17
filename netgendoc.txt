@@ -1,85 +1,106 @@
-poppaths
-  dict from population name to a list of dimension names, ordered from deepest to shallowest.
+trialdata
+  dims
+    dict from dimension name to length
+  poppaths
+    dict from population name to a list of dimension names, ordered from deepest to shallowest.
+  popcopylist
+    list of all unique populations
+  handles
+    list of handles
+  eventlist
+    list of all events
+  outputevents
+    list of handleevents to use for determining the "result" of the trial
 
-popcopylist
-  list of every unique Population
 
-Population
-  dict of properties
-  name: population name (same for all copies)
-  receptors: dict from receptor name to dict of receptor data
-  data: dict from property name to value
-    N: number of cells
-    C:
-    Taum:
-    RestPot:
-    ResetPot:
-    Threshold:
-    RestPot_ca:
-    Alpha_ca:
-    Tau_ca:
-    Eff_ca:
-  path: list of dimension names (same value as from poppaths)
-  pathvals: list of dimension values for a particular population copy
-  uniquename: a unique name for this particular copy of a population
-  targets: a list of tracts
+list of structures used (most have dedicated functions for construction)
+  Channel
+    dim: name of dimension
+    subchannels: list of subchannels contained within
+    pops: list of populations in this channel
 
-Tract
-  target: the uniquename of the target population
-  name: the name (pathway) of this connection
-  data: a dict of properties
-    TargetReceptor: name of receptor
-    Connectivity: amount of connectivity (meaning varies)
-    MeanEff: efficacy of the connection
+  Population
+    dict of properties
+    name: population name (same for all copies)
+    receptors: dict from receptor name to dict of receptor data
+    data: dict from property name to value
+      N: number of cells
+      C:
+      Taum:
+      RestPot:
+      ResetPot:
+      Threshold:
+      RestPot_ca:
+      Alpha_ca:
+      Tau_ca:
+      Eff_ca:
+    path: list of dimension names (same value as from poppaths)
+    pathvals: list of dimension values for a particular population copy
+    uniquename: a unique name for this particular copy of a population
+    targets: a list of tracts
 
-Channel
-  dim: name of dimension
-  subchannels: list of subchannels contained within
-  pops: list of populations in this channel
+  Receptor
+    name: receptor name
+    data: dict of properties
+      Tau:
+      RevPot:
+      FreqExt:
+      FreqExtSD:
+      MeanExtEff:
+      MeanExtCon:
 
-Receptor
-  name: receptor name
-  data: dict of properties
-    Tau:
-    RevPot:
-    FreqExt:
-    FreqExtSD:
-    MeanExtEff:
-    MeanExtCon:
+  Path
+    src
+    targ
+    name
+    receptor
+    connectivity
+    efficacy
+    STFT
+    STFP
+    preset
+    cmtype
+    conmatrix
 
-Path
-  src
-  targ
-  name
-  receptor
-  connectivity
-  efficacy
-  STFT
-  STFP
-  preset
-  cmtype
-  conmatrix
+  Handle
+    name: name of handle
+    targ: name of target population
+    path: list of dimensions for this handle
+    receptor: name of target receptor type
+    connectivity:
+    efficacy:
+    preset:
+    cmtype:
+    conmatrix:
+    targets: list of tracts
+    pathvals: list of dimension values for a particular handle copy
+    frequency: external frequency
+    std_dev: external frequency standard deviation
 
-Handle
-  name: name of handle
-  targ: name of target population
-  path: list of dimensions for this handle
-  receptor: name of target receptor type
-  connectivity:
-  efficacy:
-  preset:
-  cmtype:
-  conmatrix:
-  targets: list of tracts
-  pathvals: list of dimension values for a particular handle copy
-  frequency: external frequency
-  std_dev: external frequency standard deviation
+  HandleEvent
+    label: label for event
+    time: time of event
+    hname: name of handle involved in the event
+    hpath: selected path of handle(s)
+    freq: frequency to use, either as external input or for dynamic cutoff
+    etype: type of event, either 'ChangeExtFreq' (default) or 'EndTrial'
 
-dims things
-  constructConMatrix
-  constructHandleCopies
-  constructCopies
-  constructPopCopies
+  Event
+    time: time of event
+    etype: type of event
+    label: label for event
+    pop: the unique population
+    receptor: what receptor to use, if applicable
+    freq: what frequency to use, if applicable
+
+  Tract
+    target: the uniquename of the target population
+    name: the name (pathway) of this connection
+    data: a dict of properties
+      TargetReceptor: name of receptor
+      Connectivity: amount of connectivity (meaning varies)
+      MeanEff: efficacy of the connection
+
 
 list of functions
   makeChannel
@@ -87,21 +108,63 @@ list of functions
   makeReceptor
   makePath
   camP
+    helper function to create multiple paths with condensed code
+    name is abbreviation of "connections.append(makePath(...))"
   makeHandle
+  makeHandleEvent
   makeEvent
   constructCopies
+    given dimension lengths and a path (ordered list of dimensions), construct a list of all possible unique path values.  Used to determine how many copies of a population/handle are needed, and to assign them unique path values.
   constructPopPaths
+    determine the path of each population type
   constructPopCopies
+    construct all copies of populations
   constructConMatrix
+    create the adjacency matrix for a given connection, based on a string parameter for the type of connection
   constructTracts
+    use the adjacency matrix to add the list of target populations to a given population/handle
   constructConnections
+    helper method for creating all inter-population connections
   constructHandleCopies
+    create individual copies of each handle type and assign their connections
   constructEvents
-  transformScaling
+    create all individual events for a single handleevent
   printNetData
+    prints network connections as a list to the screen
   writeCsv
+    writes all population connections as a CSV file, for viewing
   writeConf
+    writes the network.conf file
   writePro
+    writes the network.pro file
+  writePickle
+    writes the network.pickle file
   compileAndRun
+    runs trials within a single directory (only one configuration)
+    probably deprecated
+  compileAndRunSweep
+    runs trials across a range of experiment configurations, supports simple parallelism
+  getCellDefaults
+    returns a dict with default population properties
   describeBG
-  multichoiceExperiment
+    produces a D1/D2 model of the basal ganglia
+  describeSubcircuit
+    produces the STN-GPe subcircuit model
+  mcInfo
+    returns configurations for a multiple-alternative experiment
+  modifyNetwork
+    adjusts connection strengths or population sizes
+  configureExperiment
+    creates the configuration files for a single experimental configuration
+  readTrialResult
+    reads the result of a single trial and packages it in a pandas DataFrame
+  readAllTrialResults
+    reads all trial results across all experimental parameters
+  findOutputs
+    determines the time of the pre-designated outputevents the trial result data
+  setDirectory
+    sets the current directory prefix for the sweep
+  getDirectory
+    gets a directory name given the current experiment number
+  configureSweep
+    configures multiple experiments (each in their own directory), one for each combination of parameters

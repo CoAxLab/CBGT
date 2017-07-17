@@ -1,5 +1,6 @@
 import random
 from subprocess import call
+from subprocess import Popen
 import pickle
 
 import pandas as pd
@@ -17,7 +18,7 @@ def makePop(name, receptors=[], data={}, data_overrides={}):
     recept_dict = {}
     for receptor in receptors:
         r_overrides = {}
-        if type(receptor) is list:
+        if isinstance(receptor, list):
             r_overrides = {
                 'MeanExtCon': receptor[1],
                 'MeanExtEff': receptor[2],
@@ -59,22 +60,22 @@ def makePath(src, targ, receptor, preset=['all'], connectivity=1, efficacy=1,
 def camP(connections, src, targ, receptor, preset=['all'], connectivity=1,
          efficacy=1, STFT=0, STFP=0, STDT=0, STDP=0, name='', cmtype='con', conmatrix=[]):
     maxlen = 1
-    if type(receptor) is list:
+    if isinstance(receptor, list):
         maxlen = len(receptor)
-    if type(connectivity) is list:
+    if isinstance(connectivity, list):
         maxlen = len(connectivity)
-    if type(efficacy) is list:
+    if isinstance(efficacy, list):
         maxlen = len(efficacy)
-    if type(preset[0]) is list:
+    if isinstance(preset[0], list):
         maxlen = len(preset)
 
-    if type(receptor) is not list:
+    if not isinstance(receptor, list):
         receptor = [receptor] * maxlen
-    if type(connectivity) is not list:
+    if not isinstance(connectivity, list):
         connectivity = [connectivity] * maxlen
-    if type(efficacy) is not list:
+    if not isinstance(efficacy, list):
         efficacy = [efficacy] * maxlen
-    if type(preset[0]) is not list:
+    if not isinstance(preset[0], list):
         preset = [preset] * maxlen
 
     for rec, con, eff, pre in zip(receptor, connectivity, efficacy, preset):
@@ -82,7 +83,8 @@ def camP(connections, src, targ, receptor, preset=['all'], connectivity=1,
                                     con, eff, STFT, STFP, STDT, STDP, name, cmtype, conmatrix))
 
 
-def makeHandle(name, targ, path, receptor=None, con=0, eff=0, preset=['syn'], conmatrix=[]):
+def makeHandle(name, targ, path, receptor=None, con=0,
+               eff=0, preset=['syn'], conmatrix=[]):
     return {'name': name,
             'targ': targ,
             'path': path,
@@ -250,7 +252,7 @@ def constructHandleCopies(dims, handletypes, poppaths, popcopylist):
             constructTracts(handlecopy, handlecopy, popcopylist)
             for tract in handlecopy['targets']:
                 for pop in popcopylist:
-                    if tract['target'] == pop['uniquename'] and handlecopy['receptor'] != None:
+                    if tract['target'] == pop['uniquename'] and handlecopy['receptor'] is not None:
                         pop['receptors'][handlecopy['receptor']
                                          ]['MeanExtCon'] = tract['data']['Connectivity']
                         pop['receptors'][handlecopy['receptor']
@@ -298,7 +300,8 @@ def writeCsv(popcopylist):
     for pop in popcopylist:
         for tract in pop['targets']:
             # tractname = str(counter) + '_' + tract['name'] + '_' + str(
-            #     tract['data']['Connectivity']) + '_' + str(tract['data']['MeanEff'])
+            # tract['data']['Connectivity']) + '_' +
+            # str(tract['data']['MeanEff'])
             tractname = str(counter) + '_' + tract['name']
             f.write(tractname + ',' +
                     pop['uniquename'] + ',' + tract['target'] + "\n")
@@ -363,8 +366,11 @@ def compileAndRun(trials=1, offset=0, sweepnumber=0):
          '/sim BG_inh_pathway_spedup.c rando2.h -lm', shell=True)
     seed = 1000
     for trial in range(0, trials):
-        call('./sim -ns -n' + str(trial + offset) + ' -s' + str(seed + trial + offset),
-             shell=True, cwd='autotest')
+        Popen('./sim -ns -n' + str(trial + offset) + ' -s' + str(seed + trial + offset),
+              shell=True, cwd='autotest')
+
+
+parallel = 4
 
 
 def compileAndRunSweep(trials=1, offset=0, sweepcount=1):
@@ -376,8 +382,12 @@ def compileAndRunSweep(trials=1, offset=0, sweepcount=1):
     for trial in range(0, trials):
         for sweepnumber in range(0, sweepcount):
             directory = getDirectory(sweepnumber)
-            call('./sim -ns -n' + str(trial + offset) + ' -s' + str(seed + trial + offset),
-                 shell=True, cwd=directory)
+            if (trial * sweepcount + sweepnumber + 1) % parallel == 0:
+                call('./sim -ns -n' + str(trial + offset) + ' -s' + str(seed + trial + offset),
+                     shell=True, cwd=directory)
+            else:
+                Popen('./sim -ns -n' + str(trial + offset) + ' -s' + str(seed + trial + offset),
+                      shell=True, cwd=directory)
 
 
 def getCellDefaults():
@@ -401,12 +411,10 @@ def getCellDefaults():
 
 
 def describeBG(**kwargs):
-    ThExtEff = 2
-    if 'ThExtEff' in kwargs:
-        ThExtEff = kwargs['ThExtEff']
-    SNrExtEff = 6
-    if 'SNrExtEff' in kwargs:
-        SNrExtEff = kwargs['SNrExtEff']
+
+    config = {'STNExtEff': 1.6}
+
+    config.update(kwargs)
 
     c = []
     h = []
@@ -419,7 +427,7 @@ def describeBG(**kwargs):
 
     SNr = makePop("SNr", [GABA, [AMPA, 800, 6, 0.8], NMDA], cd_pre)
     camP(c, 'SNr', 'Th', 'GABA', ['syn'], 1, 0.09)
-    STNE = makePop("STNE", [GABA, [AMPA, 800, 1.6, 4], NMDA], cd_pre,
+    STNE = makePop("STNE", [GABA, [AMPA, 800, config['STNExtEff'], 4], NMDA], cd_pre,
                    {'N': 2500, 'g_T': 0.06})
     camP(c, 'STNE', 'GPe', ['AMPA', 'NMDA'], ['syn'], 0.05, [0.05, 2])
     camP(c, 'STNE', 'SNr', 'NMDA', ['syn'], 1, 0.06)
@@ -428,25 +436,30 @@ def describeBG(**kwargs):
     camP(c, 'GPe', 'GPe', 'GABA', ['syn'], 0.05, 1.5)
     camP(c, 'GPe', 'STNE', 'GABA', ['syn'], 0.02, 0.8)
     camP(c, 'GPe', 'SNr', 'GABA', ['syn'], 1, 0.04)
-    camP(c, 'GPe', 'STR', 'GABA', ['syn'], 1, 0.03, name='arkipallidal')
-    STR = makePop("STR", [GABA, [AMPA, 800, 4, 1.6], NMDA], cd_pre)
-    camP(c, 'STR', 'STR', 'GABA', ['syn'], 1, 1)
-    camP(c, 'STR', 'SNr', 'GABA', ['syn'], 1, 2.4, name='direct')
-    camP(c, 'STR', 'GPe', 'GABA', ['syn'], 1, 3)
+    camP(c, 'GPe', 'D1STR', 'GABA', ['syn'], 1, 0.03, name='arkipallidal')
+    camP(c, 'GPe', 'D2STR', 'GABA', ['syn'], 1, 0.03, name='arkipallidal')
+    D1STR = makePop("D1STR", [GABA, [AMPA, 800, 4, 1.6], NMDA], cd_pre)
+    camP(c, 'D1STR', 'D1STR', 'GABA', ['syn'], 1, 1)
+    camP(c, 'D1STR', 'SNr', 'GABA', ['syn'], 1, 2.4, name='direct')
+    D2STR = makePop("D2STR", [GABA, [AMPA, 800, 4, 1.6], NMDA], cd_pre)
+    camP(c, 'D2STR', 'D2STR', 'GABA', ['syn'], 1, 1)
+    camP(c, 'D2STR', 'GPe', 'GABA', ['syn'], 1, 3, name='indirect')
     LIP = makePop("LIP", [GABA, [AMPA, 800, 2.0, 3],
                           NMDA], cd_pre, {'N': 240})
     camP(c, 'LIP', 'Th', 'AMPA', ['syn'], 1, 0)
-    camP(c, 'LIP', 'STR', 'AMPA', ['syn'], 1, 1.0)
+    camP(c, 'LIP', 'D1STR', 'AMPA', ['syn'], 1, 1.0)
+    camP(c, 'LIP', 'D2STR', 'AMPA', ['syn'], 1, 1.0)
     camP(c, 'LIP', 'LIPb', ['AMPA', 'NMDA'], ['all'], 1, [0.05, 0.165])
     camP(c, 'LIP', 'LIP', ['AMPA', 'NMDA'], ['syn'], 1, [0.085, 0.2805])
     camP(c, 'LIP', 'LIP', ['AMPA', 'NMDA'], ['anti'], 1, [0.043825, 0.14462])
     camP(c, 'LIP', 'LIPI', ['AMPA', 'NMDA'], ['all'], 1, [0.04, 0.13])
-    Th = makePop('Th', [GABA, [AMPA, 800, ThExtEff, 3.2], NMDA],
+    Th = makePop('Th', [GABA, [AMPA, 800, 2, 3.2], NMDA],
                  cd_pre)
     # camP(c, 'Th', 'Th', 'NMDA', ['syn'], 1, 1.5)
     # camP(c, 'Th', 'LIPI', 'NMDA', ['all'], 1, 0.32, STDP=0.45, STDT=600)
     camP(c, 'Th', 'LIP', 'NMDA', ['syn'], 1, 0.32, STDP=0.45, STDT=600)
-    action_channel = makeChannel('choices', [SNr, STNE, GPe, STR, LIP, Th])
+    action_channel = makeChannel(
+        'choices', [SNr, STNE, GPe, D1STR, D2STR, LIP, Th])
     LIPb = makePop("LIPb", [GABA, [AMPA, 800, 2.0, 3],
                             NMDA], cd_pre, {'N': 1120})
     camP(c, 'LIPb', 'LIPb', ['AMPA', 'NMDA'], ['all'], 1, [0.05, 0.165])
@@ -487,38 +500,36 @@ def describeSubcircuit(**kwargs):
 
 def mcInfo(**kwargs):
 
-    Stim = 3
-    if 'Stim' in kwargs:
-        Stim = kwargs['Stim']
+    config = {'BaseStim': 2.3,
+              'WrongStim': 2.50,
+              'RightStim': 2.54,
+              'Start': 300,
+              'Choices': 2,
+              'Dynamic': 30}
 
-    Start = 300
-    if 'Start' in kwargs:
-        Start = kwargs['Start']
+    config.update(kwargs)
 
-    StimDelta = 0.1
-    if 'StimDelta' in kwargs:
-        StimDelta = kwargs['StimDelta']
-
-    dims = {'brain': 1, 'choices': 2}
+    dims = {'brain': 1, 'choices': config['Choices']}
 
     hts = []
     hts.append(makeHandle('sensory', 'LIP', ['choices'], 'AMPA', 800, 2.1))
     hts.append(makeHandle('cancel', 'STNE', ['choices'], 'AMPA', 800, 1.6))
-    hts.append(makeHandle('out', 'LIP', ['choices']))
+    hts.append(makeHandle('out', 'Th', ['choices']))
 
     hes = []
-    hes.append(makeHandleEvent('reset', 0, 'sensory', [], Stim))
+    hes.append(makeHandleEvent('reset', 0, 'sensory', [], config['BaseStim']))
     hes.append(makeHandleEvent('wrong stimulus',
-                               Start, 'sensory', [], Stim + StimDelta))
-    hes.append(makeHandleEvent('right stimulus', Start,
-                               'sensory', [0], Stim + 0.25))
+                               config['Start'], 'sensory', [], config['WrongStim']))
+    hes.append(makeHandleEvent('right stimulus', config['Start'],
+                               'sensory', [0], config['RightStim']))
     hes.append(makeHandleEvent('dynamic cutoff',
-                               Start, 'out', [], 15, 'EndTrial'))
+                               config['Start'], 'out', [], config['Dynamic'], 'EndTrial'))
 
     houts = []
-    houts.append(makeHandleEvent('decision made', Start, 'out', [], 15))
+    houts.append(makeHandleEvent('decision made',
+                                 config['Start'], 'out', [], config['Dynamic']))
 
-    timelimit = 550
+    timelimit = 1300
 
     return (dims, hts, hes, houts, timelimit)
 
@@ -646,8 +657,9 @@ def findOutputs(trialdata, df=None):
                             curtime = df.at[i, 'Time (ms)']
                             if curtime < output['start']:
                                 continue
-                            if df.at[i, tract['target']] >= output['threshold']:
-                                if output['time'] == None or curtime < output['time']:
+                            if df.at[i, tract['target']
+                                     ] >= output['threshold']:
+                                if output['time'] is None or curtime < output['time']:
                                     output['time'] = curtime
                                     output['delay'] = curtime - output['start']
                                     output['pathvals'] = handle['pathvals']
@@ -655,13 +667,18 @@ def findOutputs(trialdata, df=None):
     return outputs
 
 
+def setDirectory(prefix='autotest'):
+    global directoryprefix
+    directoryprefix = prefix
+
+
 def getDirectory(sweepnumber=0):
-    return 'autotest' + str(sweepnumber)
+    return directoryprefix + str(sweepnumber)
 
 
 def configureSweep(sc=0, **kwargs):
     for key, value in kwargs.items():
-        if type(value) is list:
+        if isinstance(value, list):
             selected = {}
             selected.update(kwargs)
             for opt in value:
