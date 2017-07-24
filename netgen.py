@@ -412,7 +412,8 @@ def getCellDefaults():
 
 def describeBG(**kwargs):
 
-    config = {'STNExtEff': 1.6}
+    config = {'STNExtEff': 1.6,
+              'GPiExtEff': 6}
 
     config.update(kwargs)
 
@@ -425,22 +426,22 @@ def describeBG(**kwargs):
     AMPA = makeReceptor('AMPA', {'Tau': 2, 'RevPot': 0})
     NMDA = makeReceptor('NMDA', {'Tau': 100, 'RevPot': 0})
 
-    SNr = makePop("SNr", [GABA, [AMPA, 800, 6, 0.8], NMDA], cd_pre)
-    camP(c, 'SNr', 'Th', 'GABA', ['syn'], 1, 0.09)
+    GPi = makePop("GPi", [GABA, [AMPA, 800,  config['GPiExtEff'], 0.8], NMDA], cd_pre)
+    camP(c, 'GPi', 'Th', 'GABA', ['syn'], 1, 0.09)
     STNE = makePop("STNE", [GABA, [AMPA, 800, config['STNExtEff'], 4], NMDA], cd_pre,
                    {'N': 2500, 'g_T': 0.06})
     camP(c, 'STNE', 'GPe', ['AMPA', 'NMDA'], ['syn'], 0.05, [0.05, 2])
-    camP(c, 'STNE', 'SNr', 'NMDA', ['syn'], 1, 0.06)
+    camP(c, 'STNE', 'GPi', 'NMDA', ['syn'], 1, 0.06)
     GPe = makePop("GPe", [[GABA, 2000, 2, 2], [AMPA, 800, 2, 4], NMDA], cd_pre,
                   {'N': 2500, 'tauhm': 10, 'g_T': 0.01})
     camP(c, 'GPe', 'GPe', 'GABA', ['syn'], 0.05, 1.5)
     camP(c, 'GPe', 'STNE', 'GABA', ['syn'], 0.02, 0.8)
-    camP(c, 'GPe', 'SNr', 'GABA', ['syn'], 1, 0.04)
+    camP(c, 'GPe', 'GPi', 'GABA', ['syn'], 1, 0.04)
     camP(c, 'GPe', 'D1STR', 'GABA', ['syn'], 1, 0.03, name='arkipallidal')
     camP(c, 'GPe', 'D2STR', 'GABA', ['syn'], 1, 0.03, name='arkipallidal')
     D1STR = makePop("D1STR", [GABA, [AMPA, 800, 4, 1.6], NMDA], cd_pre)
     camP(c, 'D1STR', 'D1STR', 'GABA', ['syn'], 1, 1)
-    camP(c, 'D1STR', 'SNr', 'GABA', ['syn'], 1, 2.4, name='direct')
+    camP(c, 'D1STR', 'GPi', 'GABA', ['syn'], 1, 2.4, name='direct')
     D2STR = makePop("D2STR", [GABA, [AMPA, 800, 4, 1.6], NMDA], cd_pre)
     camP(c, 'D2STR', 'D2STR', 'GABA', ['syn'], 1, 1)
     camP(c, 'D2STR', 'GPe', 'GABA', ['syn'], 1, 3, name='indirect')
@@ -459,7 +460,7 @@ def describeBG(**kwargs):
     # camP(c, 'Th', 'LIPI', 'NMDA', ['all'], 1, 0.32, STDP=0.45, STDT=600)
     camP(c, 'Th', 'LIP', 'NMDA', ['syn'], 1, 0.32, STDP=0.45, STDT=600)
     action_channel = makeChannel(
-        'choices', [SNr, STNE, GPe, D1STR, D2STR, LIP, Th])
+        'choices', [GPi, STNE, GPe, D1STR, D2STR, LIP, Th])
     LIPb = makePop("LIPb", [GABA, [AMPA, 800, 2.0, 3],
                             NMDA], cd_pre, {'N': 1120})
     camP(c, 'LIPb', 'LIPb', ['AMPA', 'NMDA'], ['all'], 1, [0.05, 0.165])
@@ -513,7 +514,7 @@ def mcInfo(**kwargs):
 
     hts = []
     hts.append(makeHandle('sensory', 'LIP', ['choices'], 'AMPA', 800, 2.1))
-    hts.append(makeHandle('cancel', 'STNE', ['choices'], 'AMPA', 800, 1.6))
+    # hts.append(makeHandle('cancel', 'STNE', ['choices'], 'AMPA', 800, 1.6))
     hts.append(makeHandle('out', 'Th', ['choices']))
 
     hes = []
@@ -664,6 +665,7 @@ def findOutputs(trialdata, df=None):
                                     output['delay'] = curtime - output['start']
                                     output['pathvals'] = handle['pathvals']
                                 break
+    trialdata['outputs'] = outputs
     return outputs
 
 
