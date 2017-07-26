@@ -413,7 +413,8 @@ def getCellDefaults():
 def describeBG(**kwargs):
 
     config = {'STNExtEff': 1.6,
-              'GPiExtEff': 6}
+              'GPiExtEff': 6,
+              'CxSTR': 0.5}
 
     config.update(kwargs)
 
@@ -426,12 +427,15 @@ def describeBG(**kwargs):
     AMPA = makeReceptor('AMPA', {'Tau': 2, 'RevPot': 0})
     NMDA = makeReceptor('NMDA', {'Tau': 100, 'RevPot': 0})
 
-    GPi = makePop("GPi", [GABA, [AMPA, 800,  config['GPiExtEff'], 0.8], NMDA], cd_pre)
+    GPi = makePop(
+        "GPi", [
+            GABA, [
+                AMPA, 800, config['GPiExtEff'], 0.8], NMDA], cd_pre)
     camP(c, 'GPi', 'Th', 'GABA', ['syn'], 1, 0.09)
     STNE = makePop("STNE", [GABA, [AMPA, 800, config['STNExtEff'], 4], NMDA], cd_pre,
                    {'N': 2500, 'g_T': 0.06})
     camP(c, 'STNE', 'GPe', ['AMPA', 'NMDA'], ['syn'], 0.05, [0.05, 2])
-    camP(c, 'STNE', 'GPi', 'NMDA', ['syn'], 1, 0.06)
+    camP(c, 'STNE', 'GPi', 'NMDA', ['all'], 1, 0.03)
     GPe = makePop("GPe", [[GABA, 2000, 2, 2], [AMPA, 800, 2, 4], NMDA], cd_pre,
                   {'N': 2500, 'tauhm': 10, 'g_T': 0.01})
     camP(c, 'GPe', 'GPe', 'GABA', ['syn'], 0.05, 1.5)
@@ -447,20 +451,28 @@ def describeBG(**kwargs):
     camP(c, 'D2STR', 'GPe', 'GABA', ['syn'], 1, 3, name='indirect')
     LIP = makePop("LIP", [GABA, [AMPA, 800, 2.0, 3],
                           NMDA], cd_pre, {'N': 240})
-    camP(c, 'LIP', 'Th', 'AMPA', ['syn'], 1, 0)
-    camP(c, 'LIP', 'D1STR', 'AMPA', ['syn'], 1, 1.0)
-    camP(c, 'LIP', 'D2STR', 'AMPA', ['syn'], 1, 1.0)
+    camP(c, 'LIP', 'D1STR', 'AMPA', ['syn'], 1, config['CxSTR'])
+    camP(c, 'LIP', 'D2STR', 'AMPA', ['syn'], 1, config['CxSTR'])
     camP(c, 'LIP', 'LIPb', ['AMPA', 'NMDA'], ['all'], 1, [0.05, 0.165])
     camP(c, 'LIP', 'LIP', ['AMPA', 'NMDA'], ['syn'], 1, [0.085, 0.2805])
     camP(c, 'LIP', 'LIP', ['AMPA', 'NMDA'], ['anti'], 1, [0.043825, 0.14462])
     camP(c, 'LIP', 'LIPI', ['AMPA', 'NMDA'], ['all'], 1, [0.04, 0.13])
+    M1 = makePop("M1", [GABA, [AMPA, 800, 2.0, 3],
+                        NMDA], cd_pre, {'N': 240})
+    camP(c, 'M1', 'Th', 'AMPA', ['syn'], 1, 0)
+    camP(c, 'M1', 'D1STR', 'AMPA', ['syn'], 1, config['CxSTR'])
+    camP(c, 'M1', 'D2STR', 'AMPA', ['syn'], 1, config['CxSTR'])
+    camP(c, 'M1', 'M1b', ['AMPA', 'NMDA'], ['all'], 1, [0.05, 0.165])
+    camP(c, 'M1', 'M1', ['AMPA', 'NMDA'], ['syn'], 1, [0.085, 0.2805])
+    camP(c, 'M1', 'M1', ['AMPA', 'NMDA'], ['anti'], 1, [0.043825, 0.14462])
+    camP(c, 'M1', 'M1I', ['AMPA', 'NMDA'], ['all'], 1, [0.04, 0.13])
     Th = makePop('Th', [GABA, [AMPA, 800, 2, 3.2], NMDA],
                  cd_pre)
     # camP(c, 'Th', 'Th', 'NMDA', ['syn'], 1, 1.5)
     # camP(c, 'Th', 'LIPI', 'NMDA', ['all'], 1, 0.32, STDP=0.45, STDT=600)
-    camP(c, 'Th', 'LIP', 'NMDA', ['syn'], 1, 0.32, STDP=0.45, STDT=600)
+    camP(c, 'Th', 'M1', 'NMDA', ['syn'], 1, 0.32, STDP=0.45, STDT=600)
     action_channel = makeChannel(
-        'choices', [GPi, STNE, GPe, D1STR, D2STR, LIP, Th])
+        'choices', [GPi, STNE, GPe, D1STR, D2STR, LIP, M1, Th])
     LIPb = makePop("LIPb", [GABA, [AMPA, 800, 2.0, 3],
                             NMDA], cd_pre, {'N': 1120})
     camP(c, 'LIPb', 'LIPb', ['AMPA', 'NMDA'], ['all'], 1, [0.05, 0.165])
@@ -471,7 +483,17 @@ def describeBG(**kwargs):
     camP(c, 'LIPI', 'LIPb', 'GABA', ['all'], 1, 1.3)
     camP(c, 'LIPI', 'LIP', 'GABA', ['all'], 1, 1.3)
     camP(c, 'LIPI', 'LIPI', 'GABA', ['all'], 1, 1)
-    brain = makeChannel('brain', [LIPb, LIPI], [action_channel])
+    M1b = makePop("M1b", [GABA, [AMPA, 800, 2.0, 3],
+                          NMDA], cd_pre, {'N': 1120})
+    camP(c, 'M1b', 'M1b', ['AMPA', 'NMDA'], ['all'], 1, [0.05, 0.165])
+    camP(c, 'M1b', 'M1', ['AMPA', 'NMDA'], ['all'], 1, [0.043825, 0.14462])
+    camP(c, 'M1b', 'M1I', ['AMPA', 'NMDA'], ['all'], 1, [0.04, 0.13])
+    M1I = makePop("M1I", [GABA, [AMPA, 800, 1.62, 3], NMDA], cd_pre, {
+        'N': 400, 'C': 0.2, 'Taum': 10})
+    camP(c, 'M1I', 'M1b', 'GABA', ['all'], 1, 1.3)
+    camP(c, 'M1I', 'M1', 'GABA', ['all'], 1, 1.3)
+    camP(c, 'M1I', 'M1I', 'GABA', ['all'], 1, 1)
+    brain = makeChannel('brain', [LIPb, LIPI, M1b, M1I], [action_channel])
 
     return (brain, c, h)
 
@@ -501,7 +523,7 @@ def describeSubcircuit(**kwargs):
 
 def mcInfo(**kwargs):
 
-    config = {'BaseStim': 2.3,
+    config = {'BaseStim': 2.0,
               'WrongStim': 2.50,
               'RightStim': 2.54,
               'Start': 300,
@@ -513,12 +535,14 @@ def mcInfo(**kwargs):
     dims = {'brain': 1, 'choices': config['Choices']}
 
     hts = []
-    hts.append(makeHandle('sensory', 'LIP', ['choices'], 'AMPA', 800, 2.1))
+    hts.append(makeHandle('sensory', 'LIP', ['choices'], 'AMPA', 800, 2.0))
+    hts.append(makeHandle('motor', 'M1', ['choices'], 'AMPA', 800, 2.0))
     # hts.append(makeHandle('cancel', 'STNE', ['choices'], 'AMPA', 800, 1.6))
     hts.append(makeHandle('out', 'Th', ['choices']))
 
     hes = []
     hes.append(makeHandleEvent('reset', 0, 'sensory', [], config['BaseStim']))
+    hes.append(makeHandleEvent('reset', 0, 'motor', [], config['BaseStim']))
     hes.append(makeHandleEvent('wrong stimulus',
                                config['Start'], 'sensory', [], config['WrongStim']))
     hes.append(makeHandleEvent('right stimulus', config['Start'],
@@ -530,7 +554,7 @@ def mcInfo(**kwargs):
     houts.append(makeHandleEvent('decision made',
                                  config['Start'], 'out', [], config['Dynamic']))
 
-    timelimit = 1300
+    timelimit = 1800
 
     return (dims, hts, hes, houts, timelimit)
 
@@ -610,7 +634,7 @@ def readTrialResult(sweepnumber, trial):
                 rawdata.append([])
         if i > 0:
             data = lines[i].strip().split("\t")
-            if(float(data[0]) > 300):
+            if(float(data[0]) > 0):
                 for colnum, val in zip(range(len(columns)), data):
                     rawdata[colnum].append(val)
     labeled = {}
