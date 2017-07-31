@@ -41,7 +41,7 @@ def makeReceptor(name, preset={}, preset_overrides={}):
 
 
 def makePath(src, targ, receptor, preset=['all'], connectivity=1, efficacy=1,
-             STFT=0, STFP=0, STDT=0, STDP=0, name='', cmtype='con', conmatrix=[]):
+             STFT=0, STFP=0, STDT=0, STDP=0, name='', cmtype='eff', conmatrix=[]):
     return {'src': src,
             'targ': targ,
             'name': name,
@@ -58,7 +58,7 @@ def makePath(src, targ, receptor, preset=['all'], connectivity=1, efficacy=1,
 
 
 def camP(connections, src, targ, receptor, preset=['all'], connectivity=1,
-         efficacy=1, STFT=0, STFP=0, STDT=0, STDP=0, name='', cmtype='con', conmatrix=[]):
+         efficacy=1, STFT=0, STFP=0, STDT=0, STDP=0, name='', cmtype='eff', conmatrix=[]):
     maxlen = 1
     if isinstance(receptor, list):
         maxlen = len(receptor)
@@ -229,10 +229,15 @@ def constructTracts(connection, source, popcopylist):
                     source['targets'].append(tract)
 
 
-def constructConnections(dims, connections, poppaths, popcopylist):
+def constructConnections(dims, connections, poppaths, popcopylist, **kwargs):
     for con in connections:
         constructConMatrix(
             dims, con, poppaths[con['src']], poppaths[con['targ']])
+        for key, value in kwargs.items():
+            if key == con['name']:
+                if isinstance(value, dict):
+                    for src,dest,mult in zip(value['src'],value['dest'],value['mult']):
+                        con['conmatrix'][src][dest] *= mult
         for source in popcopylist:
             if source['name'] == con['src']:
                 constructTracts(con, source, popcopylist)
@@ -414,7 +419,7 @@ def describeBG(**kwargs):
 
     config = {'STNExtEff': 1.6,
               'GPiExtEff': 6,
-              'CxSTR': 0.5}
+              'CxSTR': 0.25}
 
     config.update(kwargs)
 
@@ -459,7 +464,7 @@ def describeBG(**kwargs):
     camP(c, 'LIP', 'LIPI', ['AMPA', 'NMDA'], ['all'], 1, [0.04, 0.13])
     M1 = makePop("M1", [GABA, [AMPA, 800, 2.0, 3],
                         NMDA], cd_pre, {'N': 240})
-    camP(c, 'M1', 'Th', 'AMPA', ['syn'], 1, 0)
+    camP(c, 'M1', 'Th', 'AMPA', ['syn'], 1, 0.2)
     camP(c, 'M1', 'D1STR', 'AMPA', ['syn'], 1, config['CxSTR'])
     camP(c, 'M1', 'D2STR', 'AMPA', ['syn'], 1, config['CxSTR'])
     camP(c, 'M1', 'M1b', ['AMPA', 'NMDA'], ['all'], 1, [0.05, 0.165])
@@ -471,6 +476,8 @@ def describeBG(**kwargs):
     # camP(c, 'Th', 'Th', 'NMDA', ['syn'], 1, 1.5)
     # camP(c, 'Th', 'LIPI', 'NMDA', ['all'], 1, 0.32, STDP=0.45, STDT=600)
     camP(c, 'Th', 'M1', 'NMDA', ['syn'], 1, 0.32, STDP=0.45, STDT=600)
+    camP(c, 'Th', 'D1STR', 'AMPA', ['syn'], 0.5, config['CxSTR'])
+    camP(c, 'Th', 'D2STR', 'AMPA', ['syn'], 0.5, config['CxSTR'])
     action_channel = makeChannel(
         'choices', [GPi, STNE, GPe, D1STR, D2STR, LIP, M1, Th])
     LIPb = makePop("LIPb", [GABA, [AMPA, 800, 2.0, 3],
@@ -572,11 +579,14 @@ def modifyNetwork(popcopylist, connections, **kwargs):
                     path['efficacy'] *= path['connectivity']
                     path['connectivity'] = 1
         for path in connections:
-            if key == path['name']:
+            if key == path['name'] and not isinstance(value, dict):
                 path['efficacy'] *= value
 
 
 def configureExperiment(**kwargs):
+    if 'preset' in kwargs:
+        kwargs.update(kwargs['preset'])
+
     # get network description
     brain, connections, handletypes = describeBG(**kwargs)
 
@@ -594,7 +604,7 @@ def configureExperiment(**kwargs):
 
     # create all network connections
     handles = constructHandleCopies(dims, handletypes, poppaths, popcopylist)
-    constructConnections(dims, connections, poppaths, popcopylist)
+    constructConnections(dims, connections, poppaths, popcopylist, **kwargs)
 
     # create events from handleevents
     eventlist = []
