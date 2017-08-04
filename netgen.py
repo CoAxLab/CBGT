@@ -375,7 +375,7 @@ def compileAndRun(trials=1, offset=0, sweepnumber=0):
               shell=True, cwd='autotest')
 
 
-parallel = 4
+parallel = 2
 
 
 def compileAndRunSweep(trials=1, offset=0, sweepcount=1):
@@ -419,7 +419,7 @@ def describeBG(**kwargs):
 
     config = {'STNExtEff': 1.6,
               'GPiExtEff': 6,
-              'CxSTR': 0.25}
+              'CxSTR': 0.5}
 
     config.update(kwargs)
 
@@ -446,18 +446,21 @@ def describeBG(**kwargs):
     camP(c, 'GPe', 'GPe', 'GABA', ['syn'], 0.05, 1.5)
     camP(c, 'GPe', 'STNE', 'GABA', ['syn'], 0.02, 0.8)
     camP(c, 'GPe', 'GPi', 'GABA', ['syn'], 1, 0.04)
-    camP(c, 'GPe', 'D1STR', 'GABA', ['syn'], 1, 0.03, name='arkipallidal')
-    camP(c, 'GPe', 'D2STR', 'GABA', ['syn'], 1, 0.03, name='arkipallidal')
+    camP(c, 'GPe', 'FSI', 'GABA', ['syn'], 1, 0.03, name='arkipallidal')
     D1STR = makePop("D1STR", [GABA, [AMPA, 800, 4, 1.6], NMDA], cd_pre)
     camP(c, 'D1STR', 'D1STR', 'GABA', ['syn'], 1, 1)
-    camP(c, 'D1STR', 'GPi', 'GABA', ['syn'], 1, 2.4, name='direct')
+    camP(c, 'D1STR', 'GPi', 'GABA', ['syn'], 1, 2.64, name='direct')
     D2STR = makePop("D2STR", [GABA, [AMPA, 800, 4, 1.6], NMDA], cd_pre)
     camP(c, 'D2STR', 'D2STR', 'GABA', ['syn'], 1, 1)
-    camP(c, 'D2STR', 'GPe', 'GABA', ['syn'], 1, 3, name='indirect')
+    camP(c, 'D2STR', 'GPe', 'GABA', ['syn'], 1, 3.3, name='indirect')
+    FSI = makePop("FSI", [GABA, [AMPA, 800, 4, 1.6], NMDA], cd_pre)
+    camP(c, 'FSI', 'FSI', 'GABA', ['syn'], 1, 1)
+    camP(c, 'FSI', 'D1STR', 'GABA', ['syn'], 1, 1)
+    camP(c, 'FSI', 'D2STR', 'GABA', ['syn'], 1, 1)
     LIP = makePop("LIP", [GABA, [AMPA, 800, 2.0, 3],
                           NMDA], cd_pre, {'N': 240})
-    camP(c, 'LIP', 'D1STR', 'AMPA', ['syn'], 1, config['CxSTR'])
-    camP(c, 'LIP', 'D2STR', 'AMPA', ['syn'], 1, config['CxSTR'])
+    camP(c, 'LIP', 'D1STR', 'AMPA', ['syn'], 0.5, config['CxSTR'])
+    camP(c, 'LIP', 'D2STR', 'AMPA', ['syn'], 0.5, config['CxSTR'])
     camP(c, 'LIP', 'LIPb', ['AMPA', 'NMDA'], ['all'], 1, [0.05, 0.165])
     camP(c, 'LIP', 'LIP', ['AMPA', 'NMDA'], ['syn'], 1, [0.085, 0.2805])
     camP(c, 'LIP', 'LIP', ['AMPA', 'NMDA'], ['anti'], 1, [0.043825, 0.14462])
@@ -476,10 +479,10 @@ def describeBG(**kwargs):
     # camP(c, 'Th', 'Th', 'NMDA', ['syn'], 1, 1.5)
     # camP(c, 'Th', 'LIPI', 'NMDA', ['all'], 1, 0.32, STDP=0.45, STDT=600)
     camP(c, 'Th', 'M1', 'NMDA', ['syn'], 1, 0.32, STDP=0.45, STDT=600)
-    camP(c, 'Th', 'D1STR', 'AMPA', ['syn'], 0.5, config['CxSTR'])
-    camP(c, 'Th', 'D2STR', 'AMPA', ['syn'], 0.5, config['CxSTR'])
+    camP(c, 'Th', 'D1STR', 'AMPA', ['syn'], 0.5, config['CxSTR']/2)
+    camP(c, 'Th', 'D2STR', 'AMPA', ['syn'], 0.5, config['CxSTR']/2)
     action_channel = makeChannel(
-        'choices', [GPi, STNE, GPe, D1STR, D2STR, LIP, M1, Th])
+        'choices', [GPi, STNE, GPe, D1STR, D2STR, FSI, LIP, M1, Th])
     LIPb = makePop("LIPb", [GABA, [AMPA, 800, 2.0, 3],
                             NMDA], cd_pre, {'N': 1120})
     camP(c, 'LIPb', 'LIPb', ['AMPA', 'NMDA'], ['all'], 1, [0.05, 0.165])
