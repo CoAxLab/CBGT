@@ -368,7 +368,7 @@ def writePickle(trialdata):
 def compileAndRun(trials=1, offset=0, sweepnumber=0):
     directory = getDirectory(sweepnumber)
     call('gcc -o ' + directory +
-         '/sim BG_inh_pathway_spedup.c rando2.h -lm', shell=True)
+         '/sim BG_inh_pathway_spedup.c rando2.h -lm -std=c99', shell=True)
     seed = 1000
     for trial in range(0, trials):
         Popen('./sim -ns -n' + str(trial + offset) + ' -s' + str(seed + trial + offset),
@@ -382,7 +382,7 @@ def compileAndRunSweep(trials=1, offset=0, sweepcount=1):
     for sweepnumber in range(0, sweepcount):
         directory = getDirectory(sweepnumber)
         call('gcc -o ' + directory +
-             '/sim BG_inh_pathway_spedup.c rando2.h -lm', shell=True)
+             '/sim BG_inh_pathway_spedup.c rando2.h -lm -std=c99', shell=True)
     seed = 1000
     for trial in range(0, trials):
         for sweepnumber in range(0, sweepcount):
@@ -418,8 +418,9 @@ def getCellDefaults():
 def describeBG(**kwargs):
 
     config = {'STNExtEff': 1.6,
-              'GPiExtEff': 6,
-              'CxSTR': 0.5}
+              'GPiExtEff': 6.0,
+              'CxSTR': 0.5,
+              'STNExtFreq': 4.0}
 
     config.update(kwargs)
 
@@ -437,7 +438,7 @@ def describeBG(**kwargs):
             GABA, [
                 AMPA, 800, config['GPiExtEff'], 0.8], NMDA], cd_pre)
     camP(c, 'GPi', 'Th', 'GABA', ['syn'], 1, 0.09)
-    STNE = makePop("STNE", [GABA, [AMPA, 800, config['STNExtEff'], 4], NMDA], cd_pre,
+    STNE = makePop("STNE", [GABA, [AMPA, 800, config['STNExtEff'], config['STNExtFreq']], NMDA], cd_pre,
                    {'N': 2500, 'g_T': 0.06})
     camP(c, 'STNE', 'GPe', ['AMPA', 'NMDA'], ['syn'], 0.05, [0.05, 2])
     camP(c, 'STNE', 'GPi', 'NMDA', ['all'], 1, 0.03)
@@ -462,7 +463,7 @@ def describeBG(**kwargs):
     camP(c, 'LIP', 'D1STR', 'AMPA', ['syn'], 0.5, config['CxSTR'])
     camP(c, 'LIP', 'D2STR', 'AMPA', ['syn'], 0.5, config['CxSTR'])
     camP(c, 'LIP', 'LIPb', ['AMPA', 'NMDA'], ['all'], 1, [0.05, 0.165])
-    camP(c, 'LIP', 'LIP', ['AMPA', 'NMDA'], ['syn'], 1, [0.085, 0.2805])
+    camP(c, 'LIP', 'LIP', ['AMPA', 'NMDA'], ['syn'], 1, [0.085, 0.2805], name='LIPsyn')
     camP(c, 'LIP', 'LIP', ['AMPA', 'NMDA'], ['anti'], 1, [0.043825, 0.14462])
     camP(c, 'LIP', 'LIPI', ['AMPA', 'NMDA'], ['all'], 1, [0.04, 0.13])
     M1 = makePop("M1", [GABA, [AMPA, 800, 2.0, 3],
@@ -478,7 +479,7 @@ def describeBG(**kwargs):
                  cd_pre)
     # camP(c, 'Th', 'Th', 'NMDA', ['syn'], 1, 1.5)
     # camP(c, 'Th', 'LIPI', 'NMDA', ['all'], 1, 0.32, STDP=0.45, STDT=600)
-    camP(c, 'Th', 'M1', 'NMDA', ['syn'], 1, 0.32, STDP=0.45, STDT=600)
+    camP(c, 'Th', 'M1', 'NMDA', ['syn'], 1, 0.37, STDP=0.45, STDT=600)
     camP(c, 'Th', 'D1STR', 'AMPA', ['syn'], 0.5, config['CxSTR']/2)
     camP(c, 'Th', 'D2STR', 'AMPA', ['syn'], 0.5, config['CxSTR']/2)
     action_channel = makeChannel(
@@ -536,7 +537,7 @@ def mcInfo(**kwargs):
     config = {'BaseStim': 2.0,
               'WrongStim': 2.50,
               'RightStim': 2.54,
-              'Start': 300,
+              'Start': 500,
               'Choices': 2,
               'Dynamic': 30}
 
@@ -569,6 +570,48 @@ def mcInfo(**kwargs):
     return (dims, hts, hes, houts, timelimit)
 
 
+def ssInfo(**kwargs):
+
+    config = {'BaseStim': 2.0,
+              'WrongStim': 2.50,
+              'RightStim': 2.54,
+              'Start': 500,
+              'Choices': 1,
+              'Dynamic': 30,
+              'CancelDelay': 200,
+              'CancelStim': 4.0}
+
+    config.update(kwargs)
+
+    dims = {'brain': 1, 'choices': config['Choices']}
+
+    hts = []
+    hts.append(makeHandle('sensory', 'LIP', ['choices'], 'AMPA', 800, 2.0))
+    hts.append(makeHandle('motor', 'M1', ['choices'], 'AMPA', 800, 2.0))
+    hts.append(makeHandle('cancel', 'STNE', ['choices'], 'AMPA', 800, 1.6))
+    hts.append(makeHandle('out', 'Th', ['choices']))
+
+    hes = []
+    hes.append(makeHandleEvent('reset', 0, 'sensory', [], config['BaseStim']))
+    hes.append(makeHandleEvent('reset', 0, 'motor', [], config['BaseStim']))
+    hes.append(makeHandleEvent('wrong stimulus',
+                               config['Start'], 'sensory', [], config['WrongStim']))
+    hes.append(makeHandleEvent('right stimulus', config['Start'],
+                               'sensory', [0], config['RightStim']))
+    hes.append(makeHandleEvent('cancel stimulus',
+                               config['Start'] + config['CancelDelay'], 'cancel', [], config['CancelStim']))
+    hes.append(makeHandleEvent('dynamic cutoff',
+                               config['Start'], 'out', [], config['Dynamic'], 'EndTrial'))
+
+    houts = []
+    houts.append(makeHandleEvent('decision made',
+                                 config['Start'], 'out', [], config['Dynamic']))
+
+    timelimit = 1500
+
+    return (dims, hts, hes, houts, timelimit)
+
+
 def modifyNetwork(popcopylist, connections, **kwargs):
     for key, value in kwargs.items():
         if key == 'popscale':
@@ -594,7 +637,10 @@ def configureExperiment(**kwargs):
     brain, connections, handletypes = describeBG(**kwargs)
 
     # get description relevant to this experiment and merge
-    dims, hts, handleeventlist, outputevents, timelimit = mcInfo(**kwargs)
+    if kwargs['experiment'] == 'mc':
+        dims, hts, handleeventlist, outputevents, timelimit = mcInfo(**kwargs)
+    if kwargs['experiment'] == 'ss':
+        dims, hts, handleeventlist, outputevents, timelimit = ssInfo(**kwargs)
     for ht in hts:
         handletypes.append(ht)
 
@@ -712,7 +758,7 @@ def setDirectory(prefix='autotest'):
 
 
 def getDirectory(sweepnumber=0):
-    return directoryprefix + str(sweepnumber)
+    return directoryprefix + "/group" + str(sweepnumber)
 
 
 def configureSweep(sc=0, **kwargs):
@@ -726,6 +772,7 @@ def configureSweep(sc=0, **kwargs):
             return sc
     configureExperiment(**kwargs)
     directory = getDirectory(sc)
+    call('mkdir -p ' + directoryprefix, shell=True)
     call('mkdir -p ' + directory, shell=True)
     for filename in ['network.conf', 'network.pro', 'network.pickle']:
         call('mv ' + filename + ' ' + directory + '/' + filename, shell=True)
