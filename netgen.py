@@ -417,9 +417,11 @@ def getCellDefaults():
 
 def describeBG(**kwargs):
 
-    config = {'STNExtEff': 1.6,
+    config = {'STNExtEff': 1.7,
               'GPiExtEff': 6.0,
               'CxSTR': 0.5,
+              'M1STR': 0.5,
+              'M1Th': 0.2,
               'STNExtFreq': 4.0}
 
     config.update(kwargs)
@@ -466,24 +468,26 @@ def describeBG(**kwargs):
     camP(c, 'LIP', 'LIP', ['AMPA', 'NMDA'], ['syn'], 1, [0.085, 0.2805], name='LIPsyn')
     camP(c, 'LIP', 'LIP', ['AMPA', 'NMDA'], ['anti'], 1, [0.043825, 0.14462])
     camP(c, 'LIP', 'LIPI', ['AMPA', 'NMDA'], ['all'], 1, [0.04, 0.13])
-    M1 = makePop("M1", [GABA, [AMPA, 800, 2.0, 3],
+    M1 = makePop("M1", [GABA, [AMPA, 800, 2.0, 2.9],
                         NMDA], cd_pre, {'N': 240})
-    camP(c, 'M1', 'Th', 'AMPA', ['syn'], 1, 0.2)
-    camP(c, 'M1', 'D1STR', 'AMPA', ['syn'], 1, config['CxSTR'])
-    camP(c, 'M1', 'D2STR', 'AMPA', ['syn'], 1, config['CxSTR'])
+    camP(c, 'M1', 'Th', 'AMPA', ['syn'], 1, config['M1Th'])
+    camP(c, 'M1', 'D1STR', 'AMPA', ['syn'], 1, config['M1STR'])
+    camP(c, 'M1', 'D2STR', 'AMPA', ['syn'], 1, config['M1STR'])
     camP(c, 'M1', 'M1b', ['AMPA', 'NMDA'], ['all'], 1, [0.05, 0.165])
-    camP(c, 'M1', 'M1', ['AMPA', 'NMDA'], ['syn'], 1, [0.085, 0.2805])
+    camP(c, 'M1', 'M1', ['AMPA', 'NMDA'], ['syn'], 1, [0.085, 0.2805], name='M1syn')
     camP(c, 'M1', 'M1', ['AMPA', 'NMDA'], ['anti'], 1, [0.043825, 0.14462])
     camP(c, 'M1', 'M1I', ['AMPA', 'NMDA'], ['all'], 1, [0.04, 0.13])
     Th = makePop('Th', [GABA, [AMPA, 800, 2, 3.2], NMDA],
                  cd_pre)
     # camP(c, 'Th', 'Th', 'NMDA', ['syn'], 1, 1.5)
     # camP(c, 'Th', 'LIPI', 'NMDA', ['all'], 1, 0.32, STDP=0.45, STDT=600)
-    camP(c, 'Th', 'M1', 'NMDA', ['syn'], 1, 0.37, STDP=0.45, STDT=600)
-    camP(c, 'Th', 'D1STR', 'AMPA', ['syn'], 0.5, config['CxSTR']/2)
-    camP(c, 'Th', 'D2STR', 'AMPA', ['syn'], 0.5, config['CxSTR']/2)
+    camP(c, 'Th', 'M1', 'NMDA', ['syn'], 1, 0.37, STDP=0.45, STDT=600, name='ThM1')
+    camP(c, 'Th', 'D1STR', 'AMPA', ['syn'], 0.5, config['CxSTR']/2, STDP=0.45, STDT=600, name='ThSTR')
+    camP(c, 'Th', 'D2STR', 'AMPA', ['syn'], 0.5, config['CxSTR']/2, STDP=0.45, STDT=600, name='ThSTR')
+
     action_channel = makeChannel(
         'choices', [GPi, STNE, GPe, D1STR, D2STR, FSI, LIP, M1, Th])
+
     LIPb = makePop("LIPb", [GABA, [AMPA, 800, 2.0, 3],
                             NMDA], cd_pre, {'N': 1120})
     camP(c, 'LIPb', 'LIPb', ['AMPA', 'NMDA'], ['all'], 1, [0.05, 0.165])
@@ -494,7 +498,7 @@ def describeBG(**kwargs):
     camP(c, 'LIPI', 'LIPb', 'GABA', ['all'], 1, 1.3)
     camP(c, 'LIPI', 'LIP', 'GABA', ['all'], 1, 1.3)
     camP(c, 'LIPI', 'LIPI', 'GABA', ['all'], 1, 1)
-    M1b = makePop("M1b", [GABA, [AMPA, 800, 2.0, 3],
+    M1b = makePop("M1b", [GABA, [AMPA, 800, 2.0, 2.4],
                           NMDA], cd_pre, {'N': 1120})
     camP(c, 'M1b', 'M1b', ['AMPA', 'NMDA'], ['all'], 1, [0.05, 0.165])
     camP(c, 'M1b', 'M1', ['AMPA', 'NMDA'], ['all'], 1, [0.043825, 0.14462])
@@ -593,15 +597,19 @@ def ssInfo(**kwargs):
 
     hes = []
     hes.append(makeHandleEvent('reset', 0, 'sensory', [], config['BaseStim']))
-    hes.append(makeHandleEvent('reset', 0, 'motor', [], config['BaseStim']))
     hes.append(makeHandleEvent('wrong stimulus',
                                config['Start'], 'sensory', [], config['WrongStim']))
     hes.append(makeHandleEvent('right stimulus', config['Start'],
                                'sensory', [0], config['RightStim']))
-    hes.append(makeHandleEvent('cancel stimulus',
-                               config['Start'] + config['CancelDelay'], 'cancel', [], config['CancelStim']))
+
     hes.append(makeHandleEvent('dynamic cutoff',
                                config['Start'], 'out', [], config['Dynamic'], 'EndTrial'))
+
+    if config['stop'] != 0:
+        hes.append(makeHandleEvent('cancel stimulus',
+                                   config['Start'] + config['CancelDelay'], 'cancel', [], config['CancelStim']))
+        hes.append(makeHandleEvent('cancel input',
+                                   config['Start'] + config['CancelDelay'], 'sensory', [], config['BaseStim']))
 
     houts = []
     houts.append(makeHandleEvent('decision made',
@@ -752,7 +760,7 @@ def findOutputs(trialdata, df=None):
     return outputs
 
 
-def setDirectory(prefix='autotest'):
+def setDirectory(prefix):
     global directoryprefix
     directoryprefix = prefix
 
