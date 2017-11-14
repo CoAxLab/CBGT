@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 from . import netconfig
 
 # number of clients for multiprocess
-parallel = 8
+parallel = 4
 # package_dir
 _package_dir = os.path.dirname(os.path.realpath(__file__))
 
@@ -160,10 +160,24 @@ def constructTracts(connection, source, popcopylist):
                     source['targets'].append(tract)
 
 
-def constructConnections(dims, connections, poppaths, popcopylist):
+# def constructConnections(dims, connections, poppaths, popcopylist):
+#     for con in connections:
+#         constructConMatrix(
+#             dims, con, poppaths[con['src']], poppaths[con['targ']])
+#         for source in popcopylist:
+#             if source['name'] == con['src']:
+#                 constructTracts(con, source, popcopylist)
+
+
+def constructConnections(dims, connections, poppaths, popcopylist, **kwargs):
     for con in connections:
         constructConMatrix(
             dims, con, poppaths[con['src']], poppaths[con['targ']])
+        for key, value in kwargs.items():
+            if key == con['name']:
+                if isinstance(value, dict):
+                    for src,dest,mult in zip(value['src'],value['dest'],value['mult']):
+                        con['conmatrix'][src][dest] *= mult
         for source in popcopylist:
             if source['name'] == con['src']:
                 constructTracts(con, source, popcopylist)
@@ -334,7 +348,7 @@ def mcInfo(**kwargs):
     config = {'BaseStim': 2.3,
               'WrongStim': 2.50,
               'RightStim': 2.54,
-              'Start': 300,
+              'Start': 400,
               'Choices': 2,
               'Dynamic': 30}
 
@@ -378,11 +392,15 @@ def modifyNetwork(popcopylist, connections, **kwargs):
                     path['efficacy'] *= path['connectivity']
                     path['connectivity'] = 1
         for path in connections:
-            if key == path['name']:
+            if key == path['name'] and not isinstance(value, dict):
                 path['efficacy'] *= value
 
 
 def configureExperiment(**kwargs):
+
+    if 'preset' in kwargs:
+        kwargs.update(kwargs['preset'])
+
     # get network description
     brain, connections, handletypes = netconfig.describeBG(**kwargs)
 
@@ -400,7 +418,7 @@ def configureExperiment(**kwargs):
 
     # create all network connections
     handles = constructHandleCopies(dims, handletypes, poppaths, popcopylist)
-    constructConnections(dims, connections, poppaths, popcopylist)
+    constructConnections(dims, connections, poppaths, popcopylist, **kwargs)
 
     # create events from handleevents
     eventlist = []
