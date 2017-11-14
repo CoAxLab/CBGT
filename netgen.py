@@ -160,15 +160,6 @@ def constructTracts(connection, source, popcopylist):
                     source['targets'].append(tract)
 
 
-# def constructConnections(dims, connections, poppaths, popcopylist):
-#     for con in connections:
-#         constructConMatrix(
-#             dims, con, poppaths[con['src']], poppaths[con['targ']])
-#         for source in popcopylist:
-#             if source['name'] == con['src']:
-#                 constructTracts(con, source, popcopylist)
-
-
 def constructConnections(dims, connections, poppaths, popcopylist, **kwargs):
     for con in connections:
         constructConMatrix(
@@ -305,7 +296,6 @@ def writePickle(trialdata):
     f.close()
 
 
-
 def compileAndRun(trials=1, offset=0, sweepnumber=0):
     if sys.platform == "linux" or sys.platform == "linux2":
         compiler = 'gcc'
@@ -342,13 +332,12 @@ def compileAndRunSweep(trials=1, offset=0, sweepcount=1):
                 Popen('./sim -ns -n{} -s{}'.format(str(trial+offset), str(seed+trial+offset)), shell=True, cwd=outdir)
 
 
-
 def mcInfo(**kwargs):
 
-    config = {'BaseStim': 2.3,
+    config = {'BaseStim': 2.0,
               'WrongStim': 2.50,
               'RightStim': 2.54,
-              'Start': 400,
+              'Start': 500,
               'Choices': 2,
               'Dynamic': 30}
 
@@ -357,12 +346,14 @@ def mcInfo(**kwargs):
     dims = {'brain': 1, 'choices': config['Choices']}
 
     hts = []
-    hts.append(makeHandle('sensory', 'LIP', ['choices'], 'AMPA', 800, 2.1))
+    hts.append(makeHandle('sensory', 'LIP', ['choices'], 'AMPA', 800, 2.0))
+    # hts.append(makeHandle('motor', 'M1', ['choices'], 'AMPA', 800, 2.0))
     # hts.append(makeHandle('cancel', 'STNE', ['choices'], 'AMPA', 800, 1.6))
     hts.append(makeHandle('out', 'Th', ['choices']))
 
     hes = []
     hes.append(makeHandleEvent('reset', 0, 'sensory', [], config['BaseStim']))
+    # hes.append(makeHandleEvent('reset', 0, 'motor', [], config['BaseStim']))
     hes.append(makeHandleEvent('wrong stimulus',
                                config['Start'], 'sensory', [], config['WrongStim']))
     hes.append(makeHandleEvent('right stimulus', config['Start'],
@@ -374,7 +365,53 @@ def mcInfo(**kwargs):
     houts.append(makeHandleEvent('decision made',
                                  config['Start'], 'out', [], config['Dynamic']))
 
-    timelimit = 1300
+    timelimit = 1800
+
+    return (dims, hts, hes, houts, timelimit)
+
+
+def ssInfo(**kwargs):
+
+    config = {'BaseStim': 2.0,
+              'WrongStim': 2.50,
+              'RightStim': 2.54,
+              'Start': 500,
+              'Choices': 1,
+              'Dynamic': 30,
+              'CancelDelay': 200,
+              'CancelStim': 4.0}
+
+    config.update(kwargs)
+
+    dims = {'brain': 1, 'choices': config['Choices']}
+
+    hts = []
+    hts.append(makeHandle('sensory', 'LIP', ['choices'], 'AMPA', 800, 2.0))
+    hts.append(makeHandle('motor', 'M1', ['choices'], 'AMPA', 800, 2.0))
+    hts.append(makeHandle('cancel', 'STNE', ['choices'], 'AMPA', 800, 1.6))
+    hts.append(makeHandle('out', 'Th', ['choices']))
+
+    hes = []
+    hes.append(makeHandleEvent('reset', 0, 'sensory', [], config['BaseStim']))
+    hes.append(makeHandleEvent('wrong stimulus',
+                               config['Start'], 'sensory', [], config['WrongStim']))
+    hes.append(makeHandleEvent('right stimulus', config['Start'],
+                               'sensory', [0], config['RightStim']))
+
+    hes.append(makeHandleEvent('dynamic cutoff',
+                               config['Start'], 'out', [], config['Dynamic'], 'EndTrial'))
+
+    if config['stop'] != 0:
+        hes.append(makeHandleEvent('cancel stimulus',
+                                   config['Start'] + config['CancelDelay'], 'cancel', [], config['CancelStim']))
+        hes.append(makeHandleEvent('cancel input',
+                                   config['Start'] + config['CancelDelay'], 'sensory', [], config['BaseStim']))
+
+    houts = []
+    houts.append(makeHandleEvent('decision made',
+                                 config['Start'], 'out', [], config['Dynamic']))
+
+    timelimit = 1500
 
     return (dims, hts, hes, houts, timelimit)
 
@@ -405,7 +442,10 @@ def configureExperiment(**kwargs):
     brain, connections, handletypes = netconfig.describeBG(**kwargs)
 
     # get description relevant to this experiment and merge
-    dims, hts, handleeventlist, outputevents, timelimit = mcInfo(**kwargs)
+    if kwargs['experiment'] == 'mc':
+        dims, hts, handleeventlist, outputevents, timelimit = mcInfo(**kwargs)
+    if kwargs['experiment'] == 'ss':
+        dims, hts, handleeventlist, outputevents, timelimit = ssInfo(**kwargs)
     for ht in hts:
         handletypes.append(ht)
 
@@ -525,7 +565,6 @@ def setDirectory(prefix='autotest'):
 def getDirectory(sweepnumber=0):
     return ''.join([directoryprefix, str(sweepnumber)])
 
-
 def configureSweep(sc=0, **kwargs):
     for key, value in kwargs.items():
         if isinstance(value, list):
@@ -537,6 +576,7 @@ def configureSweep(sc=0, **kwargs):
             return sc
     configureExperiment(**kwargs)
     directory = getDirectory(sc)
+    call('mkdir -p ' + directoryprefix, shell=True)
     call('mkdir -p ' + directory, shell=True)
     for filename in ['network.conf', 'network.pro', 'network.pickle']:
         call('mv ' + filename + ' ' + directory + '/' + filename, shell=True)
