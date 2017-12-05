@@ -442,24 +442,20 @@ def describeBG(**kwargs):
     camP(c, 'GPi', 'Th', 'GABA', ['syn'], 1, 0.09)
     STNE = makePop("STNE", [GABA, [AMPA, 800, config['STNExtEff'], config['STNExtFreq']], NMDA], cd_pre,
                    {'N': 2500, 'g_T': 0.06})
-    camP(c, 'STNE', 'GPe', ['AMPA', 'NMDA'], ['syn'], 0.05, [0.05, 2])
+    camP(c, 'STNE', 'GPeA', ['AMPA', 'NMDA'], ['all'], 0.05, [0.025, 1])
+    camP(c, 'STNE', 'GPeP', ['AMPA', 'NMDA'], ['syn'], 0.05, [0.05, 4])
     camP(c, 'STNE', 'GPi', 'NMDA', ['all'], 1, 0.03)
-    GPe = makePop("GPe", [[GABA, 2000, 2, 2], [AMPA, 800, 2, 4], NMDA], cd_pre,
+    GPeP = makePop("GPeP", [[GABA, 2000, 2, 2], [AMPA, 800, 2, 5], NMDA], cd_pre,
                   {'N': 2500, 'tauhm': 10, 'g_T': 0.01})
-    camP(c, 'GPe', 'GPe', 'GABA', ['syn'], 0.05, 1.5)
-    camP(c, 'GPe', 'STNE', 'GABA', ['syn'], 0.02, 0.8)
-    camP(c, 'GPe', 'GPi', 'GABA', ['syn'], 1, 0.04)
-    camP(c, 'GPe', 'FSI', 'GABA', ['syn'], 1, 0.03, name='arkipallidal')
+    camP(c, 'GPeP', 'GPeP', 'GABA', ['all'], 0.02, 1.5)
+    camP(c, 'GPeP', 'STNE', 'GABA', ['syn'], 0.02, 0.4)
+    camP(c, 'GPeP', 'GPi', 'GABA', ['syn'], 1, 0.01)
     D1STR = makePop("D1STR", [GABA, [AMPA, 800, 4, 1.6], NMDA], cd_pre)
     camP(c, 'D1STR', 'D1STR', 'GABA', ['syn'], 1, 1)
     camP(c, 'D1STR', 'GPi', 'GABA', ['syn'], 1, 2.64, name='direct')
     D2STR = makePop("D2STR", [GABA, [AMPA, 800, 4, 1.6], NMDA], cd_pre)
     camP(c, 'D2STR', 'D2STR', 'GABA', ['syn'], 1, 1)
-    camP(c, 'D2STR', 'GPe', 'GABA', ['syn'], 1, 3.3, name='indirect')
-    FSI = makePop("FSI", [GABA, [AMPA, 800, 4, 1.6], NMDA], cd_pre)
-    camP(c, 'FSI', 'FSI', 'GABA', ['syn'], 1, 1)
-    camP(c, 'FSI', 'D1STR', 'GABA', ['syn'], 1, 1)
-    camP(c, 'FSI', 'D2STR', 'GABA', ['syn'], 1, 1)
+    camP(c, 'D2STR', 'GPeP', 'GABA', ['syn'], 1, 3.3, name='indirect')
     LIP = makePop("LIP", [GABA, [AMPA, 800, 2.0, 3],
                           NMDA], cd_pre, {'N': 240})
     camP(c, 'LIP', 'D1STR', 'AMPA', ['syn'], 0.5, config['CxSTR'])
@@ -486,7 +482,7 @@ def describeBG(**kwargs):
     camP(c, 'Th', 'D2STR', 'AMPA', ['syn'], 0.5, config['CxSTR']/2, STDP=0.45, STDT=600, name='ThSTR')
 
     action_channel = makeChannel(
-        'choices', [GPi, STNE, GPe, D1STR, D2STR, FSI, LIP, M1, Th])
+        'choices', [GPi, STNE, GPeP, D1STR, D2STR, LIP, M1, Th])
 
     LIPb = makePop("LIPb", [GABA, [AMPA, 800, 2.0, 3],
                             NMDA], cd_pre, {'N': 1120})
@@ -508,7 +504,18 @@ def describeBG(**kwargs):
     camP(c, 'M1I', 'M1b', 'GABA', ['all'], 1, 1.3)
     camP(c, 'M1I', 'M1', 'GABA', ['all'], 1, 1.3)
     camP(c, 'M1I', 'M1I', 'GABA', ['all'], 1, 1)
-    brain = makeChannel('brain', [LIPb, LIPI, M1b, M1I], [action_channel])
+    FSI = makePop("FSI", [GABA, [AMPA, 800, 4, 1.6], NMDA], cd_pre)
+    camP(c, 'FSI', 'FSI', 'GABA', ['all'], 1, 1)
+    camP(c, 'FSI', 'D1STR', 'GABA', ['all'], 1, 1)
+    camP(c, 'FSI', 'D2STR', 'GABA', ['all'], 1, 1)
+    GPeA = makePop("GPeA", [[GABA, 2000, 2, 2], [AMPA, 800, 2, 4], NMDA], cd_pre,
+                  {'N': 2500, 'tauhm': 10, 'g_T': 0.01})
+    camP(c, 'GPeA', 'FSI', 'GABA', ['all'], 1, 0.03, name='arkipallidal')
+    # camP(c, 'GPeA', 'D1STR', 'GABA', ['all'], 1, 0.01, name='arkipallidal')
+    # camP(c, 'GPeA', 'D2STR', 'GABA', ['all'], 1, 0.01, name='arkipallidal')
+    camP(c, 'GPeA', 'GPeA', 'GABA', ['all'], 0.02, 1.5)
+
+    brain = makeChannel('brain', [LIPb, LIPI, M1b, M1I, FSI, GPeA], [action_channel])
 
     return (brain, c, h)
 
