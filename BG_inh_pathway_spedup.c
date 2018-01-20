@@ -266,7 +266,7 @@ typedef struct {
 
 } Population;
 
-#define MAXP 32
+#define MAXP 32 // max number of populations
 #define MAXEXTMEM 20
 
 int Npop;
@@ -673,7 +673,7 @@ int DescribeNetwork() {
       }
 
       // only float parameters, because array can only hold one type
-      PairFloat popparams[41];
+      PairFloat popparams[128];
       popparams[0] = (PairFloat){"C", &PopD[currentpop].C}; // (nF)
       popparams[1] = (PairFloat){"Taum", &PopD[currentpop].Taum}; // membrane time constant (ms)
       popparams[2] = (PairFloat){"RestPot", &PopD[currentpop].RestPot}; // resting potential (mV)
@@ -760,7 +760,7 @@ int DescribeNetwork() {
 
       if (currentreceptorflag) {
 
-        PairFloat recparams[7];
+        PairFloat recparams[128];
         recparams[0] = (PairFloat){"Tau", &PopD[currentpop].Tau[currentreceptor]};
         recparams[1] = (PairFloat){"RevPot", &PopD[currentpop].RevPots[currentreceptor]}; // Reversal potential (mV)
         recparams[2] = (PairFloat){"FreqExt", &PopD[currentpop].FreqExt[currentreceptor]}; // Ext frequency (Hz)
@@ -810,11 +810,34 @@ int DescribeNetwork() {
         continue;
       }
 
-      if (strncmp(s, "Connectivity=", 13) == 0) {
-        aux = atof(s + 13);
-        PopD[currentpop].SynP[PopD[currentpop].NTargetPops].Connectivity = aux;
-        report("  Connectivity=%f\n", (double)aux);
+      SynPopDescr targsynapse;
+      targsynapse = PopD[currentpop].SynP[PopD[currentpop].NTargetPops];
+      PairFloat targparams[128];
+      targparams[0] = (PairFloat){"Connectivity", &targsynapse.Connectivity};
+      targparams[1] = (PairFloat){"MeanEff", &targsynapse.MeanEfficacy};
+      targparams[2] = (PairFloat){"EffSD", &targsynapse.EfficacySD};
+      targparams[3] = (PairFloat){"STDepressionP", &targsynapse.pv}; // (mV)
+      targparams[4] = (PairFloat){"STDepressionTau", &targsynapse.tauD}; // (mV)
+      targparams[5] = (PairFloat){"STFacilitationP", &targsynapse.Fp}; // (mV)
+      targparams[6] = (PairFloat){"STFacilitationTau", &targsynapse.tauF}; // (mV)
+
+      for (paramnum = 0; paramnum < 7; paramnum++) {
+        PairFloat param;
+        param = targparams[paramnum];
+        int length;
+        length = strlen(param.string);
+        if (strncmp(s, param.string, length) == 0
+          && strncmp(s + length, "=", 1) == 0) {
+          *(param.variable) = atof(s + length + 1); // +1 to take into account the "="
+          report("  %s=%f\n", param.string, (double)*(param.variable));
+          found = 1;
+          break;
+        }
       }
+      if (found) {
+        continue;
+      }
+
       if (strncmp(s, "TargetReceptor=", 15) == 0) {
         s += 15;
         while (*s == ' ' || *s == '\t') s++;
@@ -825,40 +848,6 @@ int DescribeNetwork() {
         }
         PopD[currentpop].SynP[PopD[currentpop].NTargetPops].TargetReceptor = auxi;
         report("  Target receptor code=%d\n", auxi);
-      }
-
-      if (strncmp(s, "MeanEff=", 8) == 0) {
-        aux = atof(s + 8);
-        PopD[currentpop].SynP[PopD[currentpop].NTargetPops].MeanEfficacy = aux;
-        report("  Mean efficacy=%f\n", (double)aux);
-      }
-      if (strncmp(s, "EffSD=", 6) == 0) {
-        aux = atof(s + 6);
-        PopD[currentpop].SynP[PopD[currentpop].NTargetPops].EfficacySD = aux;
-        report("  Efficacy SD=%f\n", (double)aux);
-      }
-
-      if (strncmp(s, "STDepressionP=", 14) == 0) {
-        aux = atof(s + 14);
-        PopD[currentpop].SynP[PopD[currentpop].NTargetPops].pv = aux;
-        report("  STDepressionP=%f mV\n", (double)aux);
-      }
-
-      if (strncmp(s, "STDepressionTau=", 16) == 0) {
-        aux = atof(s + 16);
-        PopD[currentpop].SynP[PopD[currentpop].NTargetPops].tauD = aux;
-        report("  STDepressionTau=%f mV\n", (double)aux);
-      }
-      if (strncmp(s, "STFacilitationP=", 16) == 0) {
-        aux = atof(s + 16);
-        PopD[currentpop].SynP[PopD[currentpop].NTargetPops].Fp = aux;
-        report("  STFacilitationP=%f mV\n", (double)aux);
-      }
-
-      if (strncmp(s, "STFacilitationTau=", 18) == 0) {
-        aux = atof(s + 18);
-        PopD[currentpop].SynP[PopD[currentpop].NTargetPops].tauF = aux;
-        report("  STFacilitationTau=%f mV\n", (double)aux);
       }
     } // currentpopflag
 
