@@ -222,7 +222,7 @@ typedef struct {
   float g_T;
   float h; // gating variable for burst;
 
-  // dopaminergic learning -- constants
+  // dopaminergic learning
   int dpmn_type; // 0 = none, 1 = D1, 2 = D2
   float dpmn_alpha;
   float dpmn_dPRE;
@@ -233,7 +233,16 @@ typedef struct {
   float dpmn_c;
   float dpmn_wmax;
   float dpmn_taug;
-  // dopaminergic learning -- variables
+  float dpmn_Q1;
+  float dpmn_Q2;
+  float dpmn_APRE;
+  float dpmn_APOST;
+  float dpmn_E;
+  float dpmn_w;
+  float dpmn_XPRE;
+  float dpmn_XPOST;
+  float dpmn_DA;
+  float dpmn_tauDOP;
   
 } Neuron;
 
@@ -343,7 +352,7 @@ typedef struct {
   float g_T;
   float h;
 
-  // dopaminergic learning -- constants
+  // dopaminergic learning
   int dpmn_type; // 0 = none, 1 = D1, 2 = D2
   float dpmn_alpha;
   float dpmn_dPRE;
@@ -354,7 +363,16 @@ typedef struct {
   float dpmn_c;
   float dpmn_wmax;
   float dpmn_taug;
-  // dopaminergic learning -- variables
+  float dpmn_Q1;
+  float dpmn_Q2;
+  float dpmn_APRE;
+  float dpmn_APOST;
+  float dpmn_E;
+  float dpmn_w;
+  float dpmn_XPRE;
+  float dpmn_XPOST;
+  float dpmn_DA;
+  float dpmn_tauDOP;
 
 } PopDescr;
 
@@ -655,7 +673,7 @@ int DescribeNetwork() {
       }
 
       // only float parameters, because array can only hold one type
-      PairFloat popparams[31];
+      PairFloat popparams[41];
       popparams[0] = (PairFloat){"C", &PopD[currentpop].C}; // (nF)
       popparams[1] = (PairFloat){"Taum", &PopD[currentpop].Taum}; // membrane time constant (ms)
       popparams[2] = (PairFloat){"RestPot", &PopD[currentpop].RestPot}; // resting potential (mV)
@@ -688,8 +706,18 @@ int DescribeNetwork() {
       popparams[28] = (PairFloat){"dpmn_c", &PopD[currentpop].dpmn_c};
       popparams[29] = (PairFloat){"dpmn_wmax", &PopD[currentpop].dpmn_wmax};
       popparams[30] = (PairFloat){"dpmn_taug", &PopD[currentpop].dpmn_taug};
+      popparams[31] = (PairFloat){"dpmn_Q1", &PopD[currentpop].dpmn_Q1};
+      popparams[32] = (PairFloat){"dpmn_Q2", &PopD[currentpop].dpmn_Q2};
+      popparams[33] = (PairFloat){"dpmn_APRE", &PopD[currentpop].dpmn_APRE};
+      popparams[34] = (PairFloat){"dpmn_APOST", &PopD[currentpop].dpmn_APOST};
+      popparams[35] = (PairFloat){"dpmn_E", &PopD[currentpop].dpmn_E};
+      popparams[36] = (PairFloat){"dpmn_w", &PopD[currentpop].dpmn_w};
+      popparams[37] = (PairFloat){"dpmn_XPRE", &PopD[currentpop].dpmn_XPRE};
+      popparams[38] = (PairFloat){"dpmn_XPOST", &PopD[currentpop].dpmn_XPOST};
+      popparams[39] = (PairFloat){"dpmn_DA", &PopD[currentpop].dpmn_DA};
+      popparams[40] = (PairFloat){"dpmn_tauDOP", &PopD[currentpop].dpmn_tauDOP};
 
-      for (paramnum = 0; paramnum < 31; paramnum++) {
+      for (paramnum = 0; paramnum < 41; paramnum++) {
         PairFloat param;
         param = popparams[paramnum];
         int length;
@@ -1114,6 +1142,16 @@ int GenerateNetwork() {
       Pop[p].Cell[i].dpmn_c = PopD[p].dpmn_c;
       Pop[p].Cell[i].dpmn_wmax = PopD[p].dpmn_wmax;
       Pop[p].Cell[i].dpmn_taug = PopD[p].dpmn_taug;
+      Pop[p].Cell[i].dpmn_Q1 = PopD[p].dpmn_Q1;
+      Pop[p].Cell[i].dpmn_Q2 = PopD[p].dpmn_Q2;
+      Pop[p].Cell[i].dpmn_APRE = PopD[p].dpmn_APRE;
+      Pop[p].Cell[i].dpmn_APOST = PopD[p].dpmn_APOST;
+      Pop[p].Cell[i].dpmn_E = PopD[p].dpmn_E;
+      Pop[p].Cell[i].dpmn_w = PopD[p].dpmn_w;
+      Pop[p].Cell[i].dpmn_XPRE = PopD[p].dpmn_XPRE;
+      Pop[p].Cell[i].dpmn_XPOST = PopD[p].dpmn_XPOST;
+      Pop[p].Cell[i].dpmn_DA = PopD[p].dpmn_DA;
+      Pop[p].Cell[i].dpmn_tauDOP = PopD[p].dpmn_tauDOP;
 
       // receptors
       Pop[p].Cell[i].Nreceptors = PopD[p].Nreceptors;
@@ -1349,6 +1387,15 @@ int SimulateOneTimeStep() {
     flag = 1;
   }
 
+  // dopaminergic learning, reset variables for this tick
+  for (p = 0; p < Npop; p++) {
+    for (i = 0; i < Pop[p].Ncells; i++) {
+      Pop[p].Cell[i].dpmn_XPRE = 0;
+      Pop[p].Cell[i].dpmn_XPOST = 0;
+    }
+  }
+
+
   // Compute the decay of the total conductances and add external input
   // ------------------------------------------------------------------
   for (p = 0; p < Npop; p++) {
@@ -1468,6 +1515,10 @@ int SimulateOneTimeStep() {
         Pop[p].Cell[sourceneuron].Axonals[j].D -=
             Pop[p].Cell[sourceneuron].Axonals[j].pv * F *
             Pop[p].Cell[sourceneuron].Axonals[j].D;
+
+        // dopaminergic learning
+        Pop[tp].Cell[tn].dpmn_XPRE = 1; // presynaptic from perspective of target neuron
+
       }  // for j
          //                if(sourceneuron==20) printf("
          //                %f\n",Pop[p].Cell[sourceneuron].D);
@@ -1502,7 +1553,7 @@ int SimulateOneTimeStep() {
         continue;
       }
 
-      // refractory period
+      // skip if in refractory period
 
       if (Pop[p].Cell[i].RefrState) {
         Pop[p].Cell[i].RefrState--;
@@ -1616,6 +1667,26 @@ int SimulateOneTimeStep() {
 
         // [Ca] increases;
         Pop[p].Cell[i].Ca += Pop[p].Cell[i].alpha_ca;
+
+        // dopaminergic learning
+        Pop[p].Cell[i].dpmn_XPOST = 1; // this is the post-synaptic cell spiking
+      }
+    }
+  }
+
+  // dopaminergic learning
+  for (p = 0; p < Npop; p++) {
+    for (i = 0; i < Pop[p].Ncells; i++) {
+      Neuron nrn = Pop[p].Cell[i];
+      if (nrn.dpmn_type) {
+        // step 2 expoenentially decrease DA
+        nrn.dpmn_DA -= dt * nrn.dpmn_DA / nrn.dpmn_tauDOP;
+        // step 3
+        // TODO
+        if (nrn.dpmn_type == 1) {
+        }
+        if (nrn.dpmn_type == 2) {
+        }
       }
     }
   }
@@ -1625,9 +1696,13 @@ int SimulateOneTimeStep() {
 
   for (p = 0; p < Npop; p++) {
     Pop[p].CTableofSpikes++;
-    if (Pop[p].CTableofSpikes > MAXDELAYINDT - 1) Pop[p].CTableofSpikes = 0;
+    if (Pop[p].CTableofSpikes > MAXDELAYINDT - 1) {
+      Pop[p].CTableofSpikes = 0;
+    }
     Pop[p].DTableofSpikes++;
-    if (Pop[p].DTableofSpikes > MAXDELAYINDT - 1) Pop[p].DTableofSpikes = 0;
+    if (Pop[p].DTableofSpikes > MAXDELAYINDT - 1) {
+      Pop[p].DTableofSpikes = 0;
+    }
   }
 }
 
