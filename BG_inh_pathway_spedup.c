@@ -1679,14 +1679,26 @@ int SimulateOneTimeStep() {
     for (i = 0; i < Pop[p].Ncells; i++) {
       Neuron nrn = Pop[p].Cell[i];
       if (nrn.dpmn_type) {
-        // step 2 expoenentially decrease DA
+        // these are simply the 1st order approximations, RK45 not used
+        // step 2 exponentially decrease DA
         nrn.dpmn_DA -= dt * nrn.dpmn_DA / nrn.dpmn_tauDOP;
         // step 3
-        // TODO
+        nrn.dpmn_APRE += dt * (nrn.dpmn_dPRE * nrn.dpmn_XPRE - nrn.dpmn_APRE)
+                         / nrn.dpmn_tauPRE;
+        nrn.dpmn_APOST += dt * (nrn.dpmn_dPOST * nrn.dpmn_XPOST - nrn.dpmn_APOST)
+                          / nrn.dpmn_tauPOST;
+        nrn.dpmn_E += dt * (nrn.dpmn_XPOST * nrn.dpmn_APRE
+                            - nrn.dpmn_XPRE * nrn.dpmn_APOST - nrn.dpmn_E)
+                      / nrn.dpmn_tauE;
         if (nrn.dpmn_type == 1) {
+          nrn.dpmn_w += dt * nrn.dpmn_alpha * nrn.dpmn_E * nrn.dpmn_DA 
+                        * (nrn.dpmn_wmax - nrn.dpmn_w);
         }
         if (nrn.dpmn_type == 2) {
+          nrn.dpmn_w += dt * nrn.dpmn_alpha * nrn.dpmn_E * nrn.dpmn_DA 
+                        * (nrn.dpmn_wmax - nrn.dpmn_w) / (nrn.dpmn_c + nrn.dpmn_DA);
         }
+        // step 4 TODO
       }
     }
   }
