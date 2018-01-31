@@ -305,7 +305,7 @@ def compileAndRun(trials=1, offset=0, sweepnumber=0):
     simfile = os.path.join(getDirectory(sweepnumber), 'sim')
     call('{} -o {} BG_inh_pathway_spedup.c rando2.h -lm -std=c99'.format(compiler, simfile), shell=True, cwd=_package_dir)
 
-    seed = 1000
+    seed = np.random.randint(0, 1000)
     for trial in range(0, trials):
         Popen('./sim -ns -n{} -s{}'.format(str(trial+offset), str(seed+trial+offset)), shell=True, cwd=outdir)
     os.chdir(wkdir)
@@ -322,7 +322,7 @@ def compileAndRunSweep(trials=1, offset=0, sweepcount=1):
         simfile = os.path.join(getDirectory(sweepnumber), 'sim')
         call('{} -o {} BG_inh_pathway_spedup.c rando2.h -lm -std=c99'.format(compiler, simfile), shell=True, cwd=_package_dir)
 
-    seed = 1000
+    seed = np.random.randint(0, 1000)
     for trial in range(0, trials):
         for sweepnumber in range(0, sweepcount):
             outdir = getDirectory(sweepnumber)
@@ -336,8 +336,9 @@ def mcInfo(**kwargs):
 
     config = {'BaseStim': 2.0,
               'WrongStim': 2.50,
-              'RightStim': 2.54,
-              'Start': 500,
+              'RightStim': 2.50,
+              # 'ThresholdStim': 2.0,
+              'Start': 550,
               'Choices': 2,
               'Dynamic': 30}
 
@@ -348,24 +349,22 @@ def mcInfo(**kwargs):
     hts = []
     hts.append(makeHandle('sensory', 'LIP', ['choices'], 'AMPA', 800, 2.0))
     # hts.append(makeHandle('motor', 'M1', ['choices'], 'AMPA', 800, 2.0))
-    # hts.append(makeHandle('cancel', 'STNE', ['choices'], 'AMPA', 800, 1.6))
+    # hts.append(makeHandle('threshold', 'STNE', ['choices'], 'AMPA', 800, 1.6))
     hts.append(makeHandle('out', 'Th', ['choices']))
 
     hes = []
     hes.append(makeHandleEvent('reset', 0, 'sensory', [], config['BaseStim']))
+    # hes.append(makeHandleEvent('threshold stim', config['Start'], 'threshold', [], config['ThresholdStim']))
     # hes.append(makeHandleEvent('reset', 0, 'motor', [], config['BaseStim']))
-    hes.append(makeHandleEvent('wrong stimulus',
-                               config['Start'], 'sensory', [], config['WrongStim']))
-    hes.append(makeHandleEvent('right stimulus', config['Start'],
-                               'sensory', [0], config['RightStim']))
-    hes.append(makeHandleEvent('dynamic cutoff',
-                               config['Start'], 'out', [], config['Dynamic'], 'EndTrial'))
+    hes.append(makeHandleEvent('wrong stimulus', config['Start'], 'sensory', [], config['WrongStim']))
+    hes.append(makeHandleEvent('right stimulus', config['Start'],  'sensory', [0], config['RightStim']))
+    hes.append(makeHandleEvent('dynamic cutoff',  config['Start'], 'out', [], config['Dynamic'], 'EndTrial'))
 
     houts = []
     houts.append(makeHandleEvent('decision made',
                                  config['Start'], 'out', [], config['Dynamic']))
 
-    timelimit = 1800
+    timelimit = 800
 
     return (dims, hts, hes, houts, timelimit)
 
@@ -393,13 +392,10 @@ def ssInfo(**kwargs):
 
     hes = []
     hes.append(makeHandleEvent('reset', 0, 'sensory', [], config['BaseStim']))
-    hes.append(makeHandleEvent('wrong stimulus',
-                               config['Start'], 'sensory', [], config['WrongStim']))
-    hes.append(makeHandleEvent('right stimulus', config['Start'],
-                               'sensory', [0], config['RightStim']))
+    hes.append(makeHandleEvent('wrong stimulus', config['Start'], 'sensory', [], config['WrongStim']))
+    hes.append(makeHandleEvent('right stimulus', config['Start'],  'sensory', [0], config['RightStim']))
 
-    hes.append(makeHandleEvent('dynamic cutoff',
-                               config['Start'], 'out', [], config['Dynamic'], 'EndTrial'))
+    hes.append(makeHandleEvent('dynamic cutoff',  config['Start'], 'out', [], config['Dynamic'], 'EndTrial'))
 
     if config['stop'] != 0:
         hes.append(makeHandleEvent('cancel stimulus',
@@ -514,12 +510,19 @@ def readTrialResult(sweepnumber, trial):
 
 
 def readAllTrialResults(trials, offset=0, sweepcount=1):
+
+    outdir = getDirectory()
+    fnames = np.asarray([fn.split('.')[0].split('popfreqs')[-1] for fn in os.listdir(outdir)])
+    trials = fnames[np.array([fn.isnumeric() for fn in fnames])]
+    lastTrial = np.max([int(t) for t in trials])
+
     allresults = []
     for sweepnumber in range(sweepcount):
         results = []
-        for trial in range(trials):
+        for trial in range(lastTrial+1):
             results.append(readTrialResult(sweepnumber, trial + offset))
         allresults.append(results)
+
     return allresults
 
 
