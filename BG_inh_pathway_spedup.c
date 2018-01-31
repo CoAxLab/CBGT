@@ -1474,9 +1474,16 @@ int SimulateOneTimeStep() {
 
         if (Pop[p].Cell[sourceneuron].Axonals[j].LastConductance <
             0.) {  // NO NMDA (no saturation)
-          Pop[tp].Cell[tn].LS[tr] +=
-              D * F *
-              Pop[p].Cell[sourceneuron].Axonals[j].Efficacy;  // no saturation
+          Pop[tp].Cell[tn].LS[tr] += D * F *
+                                     Pop[p].Cell[sourceneuron].Axonals[j].Efficacy;  // no saturation
+          // dopaminergic learning
+          // step 4
+          if (Pop[tp].Cell[tn].dpmn_type && tr == AMPA) {
+            Pop[p].Cell[sourceneuron].Axonals[j].Efficacy +=  Pop[tp].Cell[tn].dpmn_w;
+            if (Pop[p].Cell[sourceneuron].Axonals[j].Efficacy < 0) {
+              Pop[p].Cell[sourceneuron].Axonals[j].Efficacy = 0;
+            }
+          }
         } else {
 // Now it should be correct. ALPHA factor to be determined (jump for every
 // spike): now it is the maximum of a single spike
@@ -1522,6 +1529,18 @@ int SimulateOneTimeStep() {
     Pop[p].NTableofSpikes[Pop[p].CTableofSpikes] =
         0;  // reset the number of emitted spikes for pop p
     for (i = 0; i < Pop[p].Ncells; i++) {
+    
+      // dopaminergic learning step 4 part 2
+      for (j = 0; j < Pop[p].Cell[i].Naxonals; j++) {
+        tn = Pop[p].Cell[i].Axonals[j].TargetNeuron;
+        tp = Pop[p].Cell[i].Axonals[j].TargetPop;
+        tr = Pop[p].Cell[i].Axonals[j].TargetReceptor;
+        if (Pop[tp].Cell[tn].dpmn_type && tr == AMPA) {
+          Pop[p].Cell[i].Axonals[j].Efficacy -= dt * Pop[p].Cell[i].Axonals[j].Efficacy / Pop[tp].Cell[tn].dpmn_taug;
+        }
+      }
+    
+    
       if (Pop[p].Cell[i].V < Pop[p].Cell[i].V_h) {
         // EQUATION 3
         Pop[p].Cell[i].h +=
@@ -1687,7 +1706,6 @@ int SimulateOneTimeStep() {
           nrn.dpmn_w += dt * nrn.dpmn_alpha * nrn.dpmn_E * nrn.dpmn_DA 
                         * (nrn.dpmn_wmax - nrn.dpmn_w) / (nrn.dpmn_c + nrn.dpmn_DA);
         }
-        // step 4 TODO
       }
     }
   }
