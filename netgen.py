@@ -1,3 +1,5 @@
+#!usr/bin/env python
+import os, sys
 import random
 from subprocess import call
 from subprocess import Popen
@@ -6,6 +8,12 @@ import pickle
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+
+
+# number of clients for multiprocess
+parallel = 4
+# package_dir
+_package_dir = os.path.dirname(os.path.realpath(__file__))
 
 
 def makeChannel(dim='brain', pops=[], subchannels=[]):
@@ -365,34 +373,42 @@ def writePickle(trialdata):
     f.close()
 
 
+
 def compileAndRun(trials=1, offset=0, sweepnumber=0):
-    directory = getDirectory(sweepnumber)
-    call('gcc -o ' + directory +
-         '/sim BG_inh_pathway_spedup.c rando2.h -lm -std=c99', shell=True)
-    seed = 1000
+    if sys.platform == "linux" or sys.platform == "linux2":
+        compiler = 'gcc'
+    elif sys.platform == "darwin":
+        compiler = 'gcc-7'
+
+    simfile = os.path.join(getDirectory(sweepnumber), 'sim')
+    call('{} -o {} BG_inh_pathway_spedup.c rando2.h -lm -std=c99'.format(compiler, simfile), shell=True, cwd=_package_dir)
+
+    seed = np.random.randint(0, 1000)
     for trial in range(0, trials):
-        Popen('./sim -ns -n' + str(trial + offset) + ' -s' + str(seed + trial + offset),
-              shell=True, cwd='autotest')
+        Popen('./sim -ns -n{} -s{}'.format(str(trial+offset), str(seed+trial+offset)), shell=True, cwd=outdir)
+    os.chdir(wkdir)
 
-
-parallel = 2
 
 
 def compileAndRunSweep(trials=1, offset=0, sweepcount=1):
+    if sys.platform == "linux" or sys.platform == "linux2":
+        compiler = 'gcc'
+    elif sys.platform == "darwin":
+        compiler = 'gcc-7'
+
     for sweepnumber in range(0, sweepcount):
-        directory = getDirectory(sweepnumber)
-        call('gcc -o ' + directory +
-             '/sim BG_inh_pathway_spedup.c rando2.h -lm -std=c99', shell=True)
-    seed = 1000
+        simfile = os.path.join(getDirectory(sweepnumber), 'sim')
+        call('{} -o {} BG_inh_pathway_spedup.c rando2.h -lm -std=c99'.format(compiler, simfile), shell=True, cwd=_package_dir)
+
+    seed = np.random.randint(0, 1000)
     for trial in range(0, trials):
         for sweepnumber in range(0, sweepcount):
-            directory = getDirectory(sweepnumber)
+            outdir = getDirectory(sweepnumber)
             if (trial * sweepcount + sweepnumber + 1) % parallel == 0:
-                call('./sim -ns -n' + str(trial + offset) + ' -s' + str(seed + trial + offset),
-                     shell=True, cwd=directory)
+                call('./sim -ns -n{} -s{}'.format(str(trial+offset), str(seed+trial+offset)), shell=True, cwd=outdir)
             else:
-                Popen('./sim -ns -n' + str(trial + offset) + ' -s' + str(seed + trial + offset),
-                      shell=True, cwd=directory)
+                Popen('./sim -ns -n{} -s{}'.format(str(trial+offset), str(seed+trial+offset)), shell=True, cwd=outdir)
+
 
 
 def getCellDefaults():
@@ -423,49 +439,36 @@ def describeBG(**kwargs):
               'M1STR': 0.5,
               'M1Th': 0.2,
               'STNExtFreq': 4.0}
-
     config.update(kwargs)
-
     c = []
     h = []
-
     cd_pre = getCellDefaults()
-
     GABA = makeReceptor('GABA', {'Tau': 5, 'RevPot': -70})
     AMPA = makeReceptor('AMPA', {'Tau': 2, 'RevPot': 0})
     NMDA = makeReceptor('NMDA', {'Tau': 100, 'RevPot': 0})
 
-    GPi = makePop(
-        "GPi", [
-            GABA, [
-                AMPA, 800, config['GPiExtEff'], 0.8], NMDA], cd_pre)
-    camP(c, 'GPi', 'Th', 'GABA', ['syn'], 1, 0.09)
-    STNE = makePop("STNE", [GABA, [AMPA, 800, config['STNExtEff'], config['STNExtFreq']], NMDA], cd_pre,
-                   {'N': 2500, 'g_T': 0.06})
-    camP(c, 'STNE', 'GPeA', ['AMPA', 'NMDA'], ['all'], 0.05, [0.025, 1])
-    camP(c, 'STNE', 'GPeP', ['AMPA', 'NMDA'], ['syn'], 0.05, [0.05, 4])
-    camP(c, 'STNE', 'GPi', 'NMDA', ['all'], 1, 0.03)
-    GPeP = makePop("GPeP", [[GABA, 2000, 2, 2], [AMPA, 800, 2, 5], NMDA], cd_pre,
-                  {'N': 2500, 'tauhm': 10, 'g_T': 0.01})
-    camP(c, 'GPeP', 'GPeP', 'GABA', ['all'], 0.02, 1.5)
-    camP(c, 'GPeP', 'STNE', 'GABA', ['syn'], 0.02, 0.4)
-    camP(c, 'GPeP', 'GPi', 'GABA', ['syn'], 1, 0.01)
-    D1STR = makePop("D1STR", [GABA, [AMPA, 800, 4, 1.6], NMDA], cd_pre)
-    camP(c, 'D1STR', 'D1STR', 'GABA', ['syn'], 1, 1)
-    camP(c, 'D1STR', 'GPi', 'GABA', ['syn'], 1, 2.64, name='direct')
-    D2STR = makePop("D2STR", [GABA, [AMPA, 800, 4, 1.6], NMDA], cd_pre)
-    camP(c, 'D2STR', 'D2STR', 'GABA', ['syn'], 1, 1)
-    camP(c, 'D2STR', 'GPeP', 'GABA', ['syn'], 1, 3.3, name='indirect')
-    LIP = makePop("LIP", [GABA, [AMPA, 800, 2.0, 3],
-                          NMDA], cd_pre, {'N': 240})
-    camP(c, 'LIP', 'D1STR', 'AMPA', ['syn'], 0.5, config['CxSTR'])
-    camP(c, 'LIP', 'D2STR', 'AMPA', ['syn'], 0.5, config['CxSTR'])
+
+
+    LIP = makePop("LIP", [GABA, [AMPA, 800, 2.0, 3],NMDA], cd_pre, {'N': 240})
+    camP(c, 'LIP', 'D1STR', 'AMPA', ['syn'], 0.5, config['CxSTR'], name='cxd')
+    camP(c, 'LIP', 'D2STR', 'AMPA', ['syn'], 0.5, config['CxSTR'], name='cxi')
     camP(c, 'LIP', 'LIPb', ['AMPA', 'NMDA'], ['all'], 1, [0.05, 0.165])
     camP(c, 'LIP', 'LIP', ['AMPA', 'NMDA'], ['syn'], 1, [0.085, 0.2805], name='LIPsyn')
     camP(c, 'LIP', 'LIP', ['AMPA', 'NMDA'], ['anti'], 1, [0.043825, 0.14462])
     camP(c, 'LIP', 'LIPI', ['AMPA', 'NMDA'], ['all'], 1, [0.04, 0.13])
-    M1 = makePop("M1", [GABA, [AMPA, 800, 2.0, 2.9],
-                        NMDA], cd_pre, {'N': 240})
+
+    LIPb = makePop("LIPb", [GABA, [AMPA, 800, 2.0, 3],NMDA], cd_pre, {'N': 1120})
+    camP(c, 'LIPb', 'LIPb', ['AMPA', 'NMDA'], ['all'], 1, [0.05, 0.165])
+    camP(c, 'LIPb', 'LIP', ['AMPA', 'NMDA'], ['all'], 1, [0.043825, 0.14462])
+    camP(c, 'LIPb', 'LIPI', ['AMPA', 'NMDA'], ['all'], 1, [0.04, 0.13])
+
+    LIPI = makePop("LIPI", [GABA, [AMPA, 800, 1.62, 3], NMDA], cd_pre, {'N': 400, 'C': 0.2, 'Taum': 10})
+    camP(c, 'LIPI', 'LIPb', 'GABA', ['all'], 1, 1.3)
+    camP(c, 'LIPI', 'LIP', 'GABA', ['all'], 1, 1.3)
+    camP(c, 'LIPI', 'LIPI', 'GABA', ['all'], 1, 1)
+
+
+    M1 = makePop("M1", [GABA, [AMPA, 800, 2.0, 2.9], NMDA], cd_pre, {'N': 240})
     camP(c, 'M1', 'Th', 'AMPA', ['syn'], 1, config['M1Th'])
     camP(c, 'M1', 'D1STR', 'AMPA', ['syn'], 1, config['M1STR'])
     camP(c, 'M1', 'D2STR', 'AMPA', ['syn'], 1, config['M1STR'])
@@ -473,50 +476,64 @@ def describeBG(**kwargs):
     camP(c, 'M1', 'M1', ['AMPA', 'NMDA'], ['syn'], 1, [0.085, 0.2805], name='M1syn')
     camP(c, 'M1', 'M1', ['AMPA', 'NMDA'], ['anti'], 1, [0.043825, 0.14462])
     camP(c, 'M1', 'M1I', ['AMPA', 'NMDA'], ['all'], 1, [0.04, 0.13])
-    Th = makePop('Th', [GABA, [AMPA, 800, 2, 3.2], NMDA],
-                 cd_pre)
-    # camP(c, 'Th', 'Th', 'NMDA', ['syn'], 1, 1.5)
-    # camP(c, 'Th', 'LIPI', 'NMDA', ['all'], 1, 0.32, STDP=0.45, STDT=600)
-    camP(c, 'Th', 'M1', 'NMDA', ['syn'], 1, 0.37, STDP=0.45, STDT=600, name='ThM1')
-    camP(c, 'Th', 'D1STR', 'AMPA', ['syn'], 0.5, config['CxSTR']/2, STDP=0.45, STDT=600, name='ThSTR')
-    camP(c, 'Th', 'D2STR', 'AMPA', ['syn'], 0.5, config['CxSTR']/2, STDP=0.45, STDT=600, name='ThSTR')
 
-    action_channel = makeChannel(
-        'choices', [GPi, STNE, GPeP, D1STR, D2STR, LIP, M1, Th])
-
-    LIPb = makePop("LIPb", [GABA, [AMPA, 800, 2.0, 3],
-                            NMDA], cd_pre, {'N': 1120})
-    camP(c, 'LIPb', 'LIPb', ['AMPA', 'NMDA'], ['all'], 1, [0.05, 0.165])
-    camP(c, 'LIPb', 'LIP', ['AMPA', 'NMDA'], ['all'], 1, [0.043825, 0.14462])
-    camP(c, 'LIPb', 'LIPI', ['AMPA', 'NMDA'], ['all'], 1, [0.04, 0.13])
-    LIPI = makePop("LIPI", [GABA, [AMPA, 800, 1.62, 3], NMDA], cd_pre, {
-                   'N': 400, 'C': 0.2, 'Taum': 10})
-    camP(c, 'LIPI', 'LIPb', 'GABA', ['all'], 1, 1.3)
-    camP(c, 'LIPI', 'LIP', 'GABA', ['all'], 1, 1.3)
-    camP(c, 'LIPI', 'LIPI', 'GABA', ['all'], 1, 1)
-    M1b = makePop("M1b", [GABA, [AMPA, 800, 2.0, 2.4],
-                          NMDA], cd_pre, {'N': 1120})
+    M1b = makePop("M1b", [GABA, [AMPA, 800, 2.0, 2.4],NMDA], cd_pre, {'N': 1120})
     camP(c, 'M1b', 'M1b', ['AMPA', 'NMDA'], ['all'], 1, [0.05, 0.165])
     camP(c, 'M1b', 'M1', ['AMPA', 'NMDA'], ['all'], 1, [0.043825, 0.14462])
     camP(c, 'M1b', 'M1I', ['AMPA', 'NMDA'], ['all'], 1, [0.04, 0.13])
-    M1I = makePop("M1I", [GABA, [AMPA, 800, 1.62, 3], NMDA], cd_pre, {
-        'N': 400, 'C': 0.2, 'Taum': 10})
+
+    M1I = makePop("M1I", [GABA, [AMPA, 800, 1.62, 3], NMDA], cd_pre, {'N': 400, 'C': 0.2, 'Taum': 10})
     camP(c, 'M1I', 'M1b', 'GABA', ['all'], 1, 1.3)
     camP(c, 'M1I', 'M1', 'GABA', ['all'], 1, 1.3)
     camP(c, 'M1I', 'M1I', 'GABA', ['all'], 1, 1)
+
+
+    D1STR = makePop("D1STR", [GABA, [AMPA, 800, 4, 1.6], NMDA], cd_pre)
+    camP(c, 'D1STR', 'D1STR', 'GABA', ['syn'], 1, 1)
+    camP(c, 'D1STR', 'GPi', 'GABA', ['syn'], 1, 2.64, name='direct')
+
+    D2STR = makePop("D2STR", [GABA, [AMPA, 800, 4, 1.6], NMDA], cd_pre)
+    camP(c, 'D2STR', 'D2STR', 'GABA', ['syn'], 1, 1)
+    camP(c, 'D2STR', 'GPeP', 'GABA', ['syn'], 1, 3.3, name='indirect')
+
     FSI = makePop("FSI", [GABA, [AMPA, 800, 4, 1.6], NMDA], cd_pre)
     camP(c, 'FSI', 'FSI', 'GABA', ['all'], 1, 1)
     camP(c, 'FSI', 'D1STR', 'GABA', ['all'], 1, 1)
     camP(c, 'FSI', 'D2STR', 'GABA', ['all'], 1, 1)
-    GPeA = makePop("GPeA", [[GABA, 2000, 2, 2], [AMPA, 800, 2, 4], NMDA], cd_pre,
-                  {'N': 2500, 'tauhm': 10, 'g_T': 0.01})
-    camP(c, 'GPeA', 'FSI', 'GABA', ['all'], 1, 0.03, name='arkipallidal')
-    # camP(c, 'GPeA', 'D1STR', 'GABA', ['all'], 1, 0.01, name='arkipallidal')
-    # camP(c, 'GPeA', 'D2STR', 'GABA', ['all'], 1, 0.01, name='arkipallidal')
+
+
+    GPeP = makePop("GPeP", [[GABA, 2000, 2, 2], [AMPA, 800, 2, 5], NMDA], cd_pre,{'N': 2500, 'tauhm': 10, 'g_T': 0.01})
+    camP(c, 'GPeP', 'GPeP', 'GABA', ['all'], 0.02, 1.5)
+    camP(c, 'GPeP', 'STNE', 'GABA', ['syn'], 0.02, 0.4)
+    camP(c, 'GPeP', 'GPi', 'GABA', ['syn'], 1, 0.01)
+
+    GPeA = makePop("GPeA", [[GABA, 2000, 2, 2], [AMPA, 800, 2, 4], NMDA], cd_pre,{'N': 2500, 'tauhm': 10, 'g_T': 0.01})
+    camP(c, 'GPeA', 'FSI', 'GABA', ['all'], 1, 0.015, name='arkyfsi')
+    camP(c, 'GPeA', 'D1STR', 'GABA', ['all'], 1, 0.0125, name='arkyd')
+    camP(c, 'GPeA', 'D2STR', 'GABA', ['all'], 1, 0.0125, name='arkyi')
     camP(c, 'GPeA', 'GPeA', 'GABA', ['all'], 0.02, 1.5)
 
-    brain = makeChannel('brain', [LIPb, LIPI, M1b, M1I, FSI, GPeA], [action_channel])
 
+    STNE = makePop("STNE", [GABA, [AMPA, 800, config['STNExtEff'], config['STNExtFreq']], NMDA],
+        cd_pre, {'N': 2500, 'g_T': 0.06})
+    camP(c, 'STNE', 'GPeA', ['AMPA', 'NMDA'], ['all'], 0.05, [0.025, 1])
+    camP(c, 'STNE', 'GPeP', ['AMPA', 'NMDA'], ['syn'], 0.05, [0.05, 4])
+    camP(c, 'STNE', 'GPi', 'NMDA', ['all'], 1, 0.03)
+
+
+    GPi = makePop("GPi", [ GABA, [AMPA, 800, config['GPiExtEff'], 0.8], NMDA], cd_pre)
+    camP(c, 'GPi', 'Th', 'GABA', ['syn'], 1, 0.09)
+
+    Th = makePop('Th', [GABA, [AMPA, 800, 2, 3.2], NMDA], cd_pre)
+    camP(c, 'Th', 'M1', 'NMDA', ['syn'], 1, 0.37, STDP=0.45, STDT=600, name='ThM1')
+    # camP(c, 'Th', 'D1STR', 'AMPA', ['syn'], 0.5, config['CxSTR']/2, STDP=0.45, STDT=600, name='ThSTR')
+    # camP(c, 'Th', 'D2STR', 'AMPA', ['syn'], 0.5, config['CxSTR']/2, STDP=0.45, STDT=600, name='ThSTR')
+
+
+    action_channel = makeChannel('choices', [GPi, STNE, GPeP, D1STR, D2STR, LIP, M1, Th])
+    brain = makeChannel('brain', [LIPb, LIPI, M1b, M1I, FSI, GPeA], [action_channel])
+    # camP(c, 'Th', 'Th', 'NMDA', ['syn'], 1, 1.5)
+    # camP(c, 'Th', 'LIPI', 'NMDA', ['all'], 1, 0.32, STDP=0.45, STDT=600)
     return (brain, c, h)
 
 
@@ -767,13 +784,14 @@ def findOutputs(trialdata, df=None):
     return outputs
 
 
-def setDirectory(prefix):
+
+def setDirectory(prefix='autotest'):
     global directoryprefix
-    directoryprefix = prefix
+    directoryprefix = os.path.join(os.path.expanduser('~'), prefix)
 
 
 def getDirectory(sweepnumber=0):
-    return directoryprefix + "/group" + str(sweepnumber)
+    return ''.join([directoryprefix, str(sweepnumber)])
 
 
 def configureSweep(sc=0, **kwargs):
