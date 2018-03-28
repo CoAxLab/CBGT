@@ -3,15 +3,16 @@ import os, sys
 import random
 from subprocess import call
 from subprocess import Popen
+from copy import deepcopy
 import pickle
-
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 
 
 # number of clients for multiprocess
-parallel = 4
+parallel = 8
+
 # package_dir
 _package_dir = os.path.dirname(os.path.realpath(__file__))
 
@@ -437,8 +438,9 @@ def describeBG(**kwargs):
               'GPiExtEff': 6.0,
               'CxSTR': 0.5,
               'M1STR': 0.5,
-              'M1Th': 0.2,
+              'CxTh': 0.2,
               'STNExtFreq': 4.0}
+
     config.update(kwargs)
     c = []
     h = []
@@ -447,93 +449,51 @@ def describeBG(**kwargs):
     AMPA = makeReceptor('AMPA', {'Tau': 2, 'RevPot': 0})
     NMDA = makeReceptor('NMDA', {'Tau': 100, 'RevPot': 0})
 
+    LIP = makePop("LIP", [GABA, [AMPA, 800, 2.8, 2.2], NMDA], cd_pre, {'N': 580})
+    camP(c, 'LIP', 'D1STR', ['AMPA', 'NMDA'], ['syn'], 0.5, [config['CxSTR'], config['CxSTR']*1.05], name='cxd')
+    camP(c, 'LIP', 'D2STR',  ['AMPA', 'NMDA'], ['syn'], 0.5, [config['CxSTR'], config['CxSTR']*1.05], name='cxi')
+    camP(c, 'LIP', 'FSI', 'AMPA', ['all'], 0.5, config['CxFSI'], name='cxfsi')
+    camP(c, 'LIP', 'Th', ['AMPA', 'NMDA'], ['all'], 0.35, [config['CxTh'], config['CxTh']])
 
+    D1STR = makePop("D1STR", [GABA, [AMPA, 800, 4., 1.3], NMDA], cd_pre)
+    camP(c, 'D1STR', 'D1STR', 'GABA', ['syn'], .20, .31)
+    camP(c, 'D1STR', 'D2STR', 'GABA', ['syn'], .20, .3)
+    camP(c, 'D1STR', 'GPi', 'GABA', ['syn'], .6, 1.0, name='direct')
 
-    LIP = makePop("LIP", [GABA, [AMPA, 800, 2.0, 3],NMDA], cd_pre, {'N': 240})
-    camP(c, 'LIP', 'D1STR', 'AMPA', ['syn'], 0.5, config['CxSTR'], name='cxd')
-    camP(c, 'LIP', 'D2STR', 'AMPA', ['syn'], 0.5, config['CxSTR'], name='cxi')
-    camP(c, 'LIP', 'LIPb', ['AMPA', 'NMDA'], ['all'], 1, [0.05, 0.165])
-    camP(c, 'LIP', 'LIP', ['AMPA', 'NMDA'], ['syn'], 1, [0.085, 0.2805], name='LIPsyn')
-    camP(c, 'LIP', 'LIP', ['AMPA', 'NMDA'], ['anti'], 1, [0.043825, 0.14462])
-    camP(c, 'LIP', 'LIPI', ['AMPA', 'NMDA'], ['all'], 1, [0.04, 0.13])
+    D2STR = makePop("D2STR", [GABA, [AMPA, 800, 4., 1.3], NMDA], cd_pre)
+    camP(c, 'D2STR', 'D2STR', 'GABA', ['syn'], .25, .28)
+    camP(c, 'D2STR', 'D1STR', 'GABA', ['syn'], .25, .325)
+    camP(c, 'D2STR', 'GPeP', 'GABA', ['syn'], .75, 1.72, name='indirect')
 
-    LIPb = makePop("LIPb", [GABA, [AMPA, 800, 2.0, 3],NMDA], cd_pre, {'N': 1120})
-    camP(c, 'LIPb', 'LIPb', ['AMPA', 'NMDA'], ['all'], 1, [0.05, 0.165])
-    camP(c, 'LIPb', 'LIP', ['AMPA', 'NMDA'], ['all'], 1, [0.043825, 0.14462])
-    camP(c, 'LIPb', 'LIPI', ['AMPA', 'NMDA'], ['all'], 1, [0.04, 0.13])
+    cd_preFSI = deepcopy(cd_pre)
+    cd_preFSI['ResetPot'] = -50
+    FSI = makePop("FSI", [GABA, [AMPA, 800, 4.1, 1.3], NMDA], cd_preFSI)
+    camP(c, 'FSI', 'FSI', 'GABA', ['all'], .8, .7)
+    camP(c, 'FSI', 'D1STR', 'GABA', ['all'], .56, 1.21)
+    camP(c, 'FSI', 'D2STR', 'GABA', ['all'], .55, 1.2)
 
-    LIPI = makePop("LIPI", [GABA, [AMPA, 800, 1.62, 3], NMDA], cd_pre, {'N': 400, 'C': 0.2, 'Taum': 10})
-    camP(c, 'LIPI', 'LIPb', 'GABA', ['all'], 1, 1.3)
-    camP(c, 'LIPI', 'LIP', 'GABA', ['all'], 1, 1.3)
-    camP(c, 'LIPI', 'LIPI', 'GABA', ['all'], 1, 1)
-
-
-    M1 = makePop("M1", [GABA, [AMPA, 800, 2.0, 2.9], NMDA], cd_pre, {'N': 240})
-    camP(c, 'M1', 'Th', 'AMPA', ['syn'], 1, config['M1Th'])
-    camP(c, 'M1', 'D1STR', 'AMPA', ['syn'], 1, config['M1STR'])
-    camP(c, 'M1', 'D2STR', 'AMPA', ['syn'], 1, config['M1STR'])
-    camP(c, 'M1', 'M1b', ['AMPA', 'NMDA'], ['all'], 1, [0.05, 0.165])
-    camP(c, 'M1', 'M1', ['AMPA', 'NMDA'], ['syn'], 1, [0.085, 0.2805], name='M1syn')
-    camP(c, 'M1', 'M1', ['AMPA', 'NMDA'], ['anti'], 1, [0.043825, 0.14462])
-    camP(c, 'M1', 'M1I', ['AMPA', 'NMDA'], ['all'], 1, [0.04, 0.13])
-
-    M1b = makePop("M1b", [GABA, [AMPA, 800, 2.0, 2.4],NMDA], cd_pre, {'N': 1120})
-    camP(c, 'M1b', 'M1b', ['AMPA', 'NMDA'], ['all'], 1, [0.05, 0.165])
-    camP(c, 'M1b', 'M1', ['AMPA', 'NMDA'], ['all'], 1, [0.043825, 0.14462])
-    camP(c, 'M1b', 'M1I', ['AMPA', 'NMDA'], ['all'], 1, [0.04, 0.13])
-
-    M1I = makePop("M1I", [GABA, [AMPA, 800, 1.62, 3], NMDA], cd_pre, {'N': 400, 'C': 0.2, 'Taum': 10})
-    camP(c, 'M1I', 'M1b', 'GABA', ['all'], 1, 1.3)
-    camP(c, 'M1I', 'M1', 'GABA', ['all'], 1, 1.3)
-    camP(c, 'M1I', 'M1I', 'GABA', ['all'], 1, 1)
-
-
-    D1STR = makePop("D1STR", [GABA, [AMPA, 800, 4, 1.6], NMDA], cd_pre)
-    camP(c, 'D1STR', 'D1STR', 'GABA', ['syn'], 1, 1)
-    camP(c, 'D1STR', 'GPi', 'GABA', ['syn'], 1, 2.64, name='direct')
-
-    D2STR = makePop("D2STR", [GABA, [AMPA, 800, 4, 1.6], NMDA], cd_pre)
-    camP(c, 'D2STR', 'D2STR', 'GABA', ['syn'], 1, 1)
-    camP(c, 'D2STR', 'GPeP', 'GABA', ['syn'], 1, 3.3, name='indirect')
-
-    FSI = makePop("FSI", [GABA, [AMPA, 800, 4, 1.6], NMDA], cd_pre)
-    camP(c, 'FSI', 'FSI', 'GABA', ['all'], 1, 1)
-    camP(c, 'FSI', 'D1STR', 'GABA', ['all'], 1, 1)
-    camP(c, 'FSI', 'D2STR', 'GABA', ['all'], 1, 1)
-
-
-    GPeP = makePop("GPeP", [[GABA, 2000, 2, 2], [AMPA, 800, 2, 5], NMDA], cd_pre,{'N': 2500, 'tauhm': 10, 'g_T': 0.01})
+    GPeP = makePop("GPeP", [[GABA, 2000, 2, 2], [AMPA, 800, 2, 5], NMDA],
+                    cd_pre, {'N': 2500, 'tauhm': 10, 'g_T': 0.01})
     camP(c, 'GPeP', 'GPeP', 'GABA', ['all'], 0.02, 1.5)
     camP(c, 'GPeP', 'STNE', 'GABA', ['syn'], 0.02, 0.4)
-    camP(c, 'GPeP', 'GPi', 'GABA', ['syn'], 1, 0.01)
+    # camP(c, 'GPeP', 'GPi', 'GABA', ['syn'], 1, 0.01)
+    camP(c, 'GPeP', 'GPi', 'GABA', ['syn'], 1, 0.0122)
 
-    GPeA = makePop("GPeA", [[GABA, 2000, 2, 2], [AMPA, 800, 2, 4], NMDA], cd_pre,{'N': 2500, 'tauhm': 10, 'g_T': 0.01})
-    camP(c, 'GPeA', 'FSI', 'GABA', ['all'], 1, 0.015, name='arkyfsi')
-    camP(c, 'GPeA', 'D1STR', 'GABA', ['all'], 1, 0.0125, name='arkyd')
-    camP(c, 'GPeA', 'D2STR', 'GABA', ['all'], 1, 0.0125, name='arkyi')
-    camP(c, 'GPeA', 'GPeA', 'GABA', ['all'], 0.02, 1.5)
-
-
-    STNE = makePop("STNE", [GABA, [AMPA, 800, config['STNExtEff'], config['STNExtFreq']], NMDA],
-        cd_pre, {'N': 2500, 'g_T': 0.06})
-    camP(c, 'STNE', 'GPeA', ['AMPA', 'NMDA'], ['all'], 0.05, [0.025, 1])
-    camP(c, 'STNE', 'GPeP', ['AMPA', 'NMDA'], ['syn'], 0.05, [0.05, 4])
-    camP(c, 'STNE', 'GPi', 'NMDA', ['all'], 1, 0.03)
-
+    STNE = makePop("STNE", [GABA, [AMPA, 800, config['STNExtEff'],
+                config['STNExtFreq']], NMDA], cd_pre, {'N': 2500, 'g_T': 0.03})
+    camP(c, 'STNE', 'GPeP', ['AMPA', 'NMDA'], ['syn'], 0.0485, [0.07, 4])
+    camP(c, 'STNE', 'GPi', 'NMDA', ['all'], 1, 0.0315)
 
     GPi = makePop("GPi", [ GABA, [AMPA, 800, config['GPiExtEff'], 0.8], NMDA], cd_pre)
-    camP(c, 'GPi', 'Th', 'GABA', ['syn'], 1, 0.09)
+    camP(c, 'GPi', 'Th', 'GABA', ['syn'], .85, 0.085)
 
-    Th = makePop('Th', [GABA, [AMPA, 800, 2, 3.2], NMDA], cd_pre)
-    camP(c, 'Th', 'M1', 'NMDA', ['syn'], 1, 0.37, STDP=0.45, STDT=600, name='ThM1')
-    # camP(c, 'Th', 'D1STR', 'AMPA', ['syn'], 0.5, config['CxSTR']/2, STDP=0.45, STDT=600, name='ThSTR')
-    # camP(c, 'Th', 'D2STR', 'AMPA', ['syn'], 0.5, config['CxSTR']/2, STDP=0.45, STDT=600, name='ThSTR')
-
-
-    action_channel = makeChannel('choices', [GPi, STNE, GPeP, D1STR, D2STR, LIP, M1, Th])
-    brain = makeChannel('brain', [LIPb, LIPI, M1b, M1I, FSI, GPeA], [action_channel])
-    # camP(c, 'Th', 'Th', 'NMDA', ['syn'], 1, 1.5)
-    # camP(c, 'Th', 'LIPI', 'NMDA', ['all'], 1, 0.32, STDP=0.45, STDT=600)
+    Th = makePop('Th', [GABA, [AMPA, 800, 2.5, 2.15], NMDA], cd_pre)
+    camP(c, 'Th', 'D1STR', 'AMPA', ['all'], 0.5, config['ThSTR'])
+    camP(c, 'Th', 'D2STR', 'AMPA', ['all'], 0.5, config['ThSTR'])
+    camP(c, 'Th', 'FSI', 'AMPA', ['all'], 0.25, config['ThSTR']/1.25)
+    camP(c, 'Th', 'LIP', 'NMDA', ['all'], 0.5, config['ThCx'], name='thcx')
+    action_channel = makeChannel('choices', [GPi, STNE, GPeP, D1STR, D2STR, LIP, Th])
+    brain = makeChannel('brain', [FSI], [action_channel])
     return (brain, c, h)
 
 
@@ -547,16 +507,13 @@ def describeSubcircuit(**kwargs):
     AMPA = makeReceptor('AMPA', {'Tau': 2, 'RevPot': 0})
     NMDA = makeReceptor('NMDA', {'Tau': 100, 'RevPot': 0})
 
-    STNE = makePop('STNE', [GABA, [AMPA, 800, 1, 4], NMDA],
-                   cd_pre, {'N': 2500, 'g_T': 0.06})
+    STNE = makePop('STNE', [GABA, [AMPA, 800, 1, 4], NMDA], cd_pre, {'N': 2500, 'g_T': 0.06})
     camP(c, 'STNE', 'GPeI', 'AMPA', ['syn'], 0.05, 0.05)
     camP(c, 'STNE', 'GPeI', 'NMDA', ['syn'], 0.05, 10)
-    GPeI = makePop('GPeI', [[GABA, 2500, 22, 1], [
-                   AMPA, 800, 1.6, 5], NMDA], cd_pre, {'N': 2500, 'g_T': 0.06})
+    GPeI = makePop('GPeI', [[GABA, 2500, 22, 1], [AMPA, 800, 1.6, 5], NMDA], cd_pre, {'N': 2500, 'g_T': 0.06})
     camP(c, 'GPeI', 'GPeI', 'GABA', ['syn'], 0.05, 0.02)
     camP(c, 'GPeI', 'STNE', 'GABA', ['syn'], 0.02, 10)
     brain = makeChannel('brain', [GPeI, STNE])
-
     return (brain, c, h)
 
 
@@ -575,25 +532,27 @@ def mcInfo(**kwargs):
 
     hts = []
     hts.append(makeHandle('sensory', 'LIP', ['choices'], 'AMPA', 800, 2.0))
-    hts.append(makeHandle('motor', 'M1', ['choices'], 'AMPA', 800, 2.0))
+    # hts.append(makeHandle('motor', 'M1', ['choices'], 'AMPA', 800, 2.0))
     # hts.append(makeHandle('cancel', 'STNE', ['choices'], 'AMPA', 800, 1.6))
+    hts.append(makeHandle('threshold', 'STNE', ['choices'], 'AMPA', 800, 1.65))
     hts.append(makeHandle('out', 'Th', ['choices']))
 
     hes = []
-    hes.append(makeHandleEvent('reset', 0, 'sensory', [], config['BaseStim']))
-    hes.append(makeHandleEvent('reset', 0, 'motor', [], config['BaseStim']))
-    hes.append(makeHandleEvent('wrong stimulus',
-                               config['Start'], 'sensory', [], config['WrongStim']))
-    hes.append(makeHandleEvent('right stimulus', config['Start'],
-                               'sensory', [0], config['RightStim']))
-    hes.append(makeHandleEvent('dynamic cutoff',
-                               config['Start'], 'out', [], config['Dynamic'], 'EndTrial'))
+    # hes.append(makeHandleEvent('reset', 0, 'sensory', [], config['BaseStim']))
+    hes.append(makeHandleEvent('reset', config['Start'], 'sensory', [], config['BaseStim']))
+    # hes.append(makeHandleEvent('reset', 0, 'motor', [], config['BaseStim']))
+    hes.append(makeHandleEvent('wrong stimulus', config['Start'], 'sensory', [], config['WrongStim']))
+    hes.append(makeHandleEvent('right stimulus', config['Start'], 'sensory', [0], config['RightStim']))
+    hes.append(makeHandleEvent('hyperdirect', config['Start'], 'threshold', [], config['STNExtFreq']+.65))
+    hes.append(makeHandleEvent('hyperdirect', config['Start'], 'threshold', [0], config['STNExtFreq']+.65))
+    hes.append(makeHandleEvent('dynamic cutoff', config['Start'], 'out', [], config['Dynamic'], 'EndTrial'))
 
     houts = []
     houts.append(makeHandleEvent('decision made',
                                  config['Start'], 'out', [], config['Dynamic']))
 
-    timelimit = 1800
+    # timelimit = 1800
+    timelimit = 700
 
     return (dims, hts, hes, houts, timelimit)
 
@@ -640,7 +599,6 @@ def ssInfo(**kwargs):
                                  config['Start'], 'out', [], config['Dynamic']))
 
     timelimit = 1500
-
     return (dims, hts, hes, houts, timelimit)
 
 
