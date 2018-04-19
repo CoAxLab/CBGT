@@ -386,8 +386,9 @@ def compileAndRun(trials=1, offset=0, sweepnumber=0):
 
     seed = np.random.randint(0, 1000)
     for trial in range(0, trials):
+        outdir = getDirectory(sweepnumber)
         Popen('./sim -ns -n{} -s{}'.format(str(trial+offset), str(seed+trial+offset)), shell=True, cwd=outdir)
-    os.chdir(wkdir)
+    #os.chdir(wkdir)
 
 
 
@@ -412,6 +413,54 @@ def compileAndRunSweep(trials=1, offset=0, sweepcount=1):
 
 
 
+def compileAndRunSweepALL(trials=1, offset=0, sweepcount=1):
+    if sys.platform == "linux" or sys.platform == "linux2":
+        compiler = 'gcc'
+    elif sys.platform == "darwin":
+        compiler = 'gcc-7'
+
+    for sweepnumber in range(0, sweepcount):
+        simfile = os.path.join(getDirectory(sweepnumber), 'sim')
+        call('{} -o {} BG_inh_pathway_spedup.c rando2.h -lm -std=c99'.format(compiler, simfile), shell=True, cwd=_package_dir)
+
+    seed = np.random.randint(0, 1000)
+
+    for sweepnumber in range(0, sweepcount):
+        for trial in range(0, trials):
+            outdir = getDirectory(sweepnumber)
+            if (trial * sweepcount + sweepnumber + 1) % parallel == 0:
+                call('./sim -ns -n{} -s{}'.format(str(trial+offset), str(seed+trial+offset)), shell=True, cwd=outdir)
+            else:
+                Popen('./sim -ns -n{} -s{}'.format(str(trial+offset), str(seed+trial+offset)), shell=True, cwd=outdir)
+
+
+# def configureSweep_noisy(sc=0, stimArray=None, **kwargs):
+#     #call('mkdir -p ' + directoryprefix, shell=True)
+#     #call('mkdir -p ' + directory, shell=True)
+#     ntrials = 1
+#     if stimArray is not None:
+#         ntrials = stimArray.size
+#     for trial in range(0, ntrials):
+#         if stimArray is not None:
+#             kwargs['RightStim'] = stimArray[trial]
+#             kwargs['WrongStim'] = stimArray[trial]
+#             print(kwargs['WrongStim'])
+#         for key, value in kwargs.items():
+#             if isinstance(value, list):
+#                 selected = {}
+#                 selected.update(kwargs)
+#                 for opt in value:
+#                     selected[key] = opt
+#                     sc = configureSweep_noisy(sc, **selected)
+#                 return sc
+#         configureExperiment(**kwargs)
+#         directory = getDirectory(0)
+#         for filename in ['network.conf', 'network.pro', 'network.pickle']:
+#             call('mv ' + filename + ' ' + directory + '/' + filename, shell=True)
+#         compileAndRun(1, trial, 0)
+#     return sc + 1
+#
+
 def getCellDefaults():
     return {'N': 250,
             'C': 0.5,
@@ -432,6 +481,7 @@ def getCellDefaults():
             'g_T': 0}
 
 
+
 def describeBG(**kwargs):
 
     config = {'STNExtEff': 1.7,
@@ -439,7 +489,15 @@ def describeBG(**kwargs):
               'CxSTR': 0.5,
               'M1STR': 0.5,
               'CxTh': 0.2,
-              'STNExtFreq': 4.0}
+              'STNExtFreq': 4.0,
+              'rampingCTX': False}
+
+    # makePop(name, receptors=[], data={}, data_overrides={})
+
+    # camP(connections, src, targ, receptor, preset=['all'], connectivity=1,
+    #       efficacy=1, STFT=0, STFP=0, STDT=0, STDP=0, name='', cmtype='eff', conmatrix=[])
+
+
 
     config.update(kwargs)
     c = []
@@ -449,34 +507,32 @@ def describeBG(**kwargs):
     AMPA = makeReceptor('AMPA', {'Tau': 2, 'RevPot': 0})
     NMDA = makeReceptor('NMDA', {'Tau': 100, 'RevPot': 0})
 
-    LIP = makePop("LIP", [GABA, [AMPA, 800, 2.8, 2.2], NMDA], cd_pre, {'N': 580})
+    LIP = makePop("LIP", [GABA, [AMPA, 800, 2.8, 2.2], NMDA], cd_pre, {'N': 680})
+
     camP(c, 'LIP', 'D1STR', ['AMPA', 'NMDA'], ['syn'], 0.5, [config['CxSTR'], config['CxSTR']*1.05], name='cxd')
     camP(c, 'LIP', 'D2STR',  ['AMPA', 'NMDA'], ['syn'], 0.5, [config['CxSTR'], config['CxSTR']*1.05], name='cxi')
     camP(c, 'LIP', 'FSI', 'AMPA', ['all'], 0.5, config['CxFSI'], name='cxfsi')
     camP(c, 'LIP', 'Th', ['AMPA', 'NMDA'], ['all'], 0.35, [config['CxTh'], config['CxTh']])
 
     D1STR = makePop("D1STR", [GABA, [AMPA, 800, 4., 1.3], NMDA], cd_pre)
-    camP(c, 'D1STR', 'D1STR', 'GABA', ['syn'], .20, .31)
-    camP(c, 'D1STR', 'D2STR', 'GABA', ['syn'], .20, .3)
-    camP(c, 'D1STR', 'GPi', 'GABA', ['syn'], .6, 1.0, name='direct')
+    camP(c, 'D1STR', 'D1STR', 'GABA', ['syn'], .175, .3)
+    camP(c, 'D1STR', 'D2STR', 'GABA', ['syn'], .175, .3)
+    camP(c, 'D1STR', 'GPi', 'GABA', ['syn'], .55, 1.0, name='direct')
 
     D2STR = makePop("D2STR", [GABA, [AMPA, 800, 4., 1.3], NMDA], cd_pre)
-    camP(c, 'D2STR', 'D2STR', 'GABA', ['syn'], .25, .28)
-    camP(c, 'D2STR', 'D1STR', 'GABA', ['syn'], .25, .325)
-    camP(c, 'D2STR', 'GPeP', 'GABA', ['syn'], .75, 1.72, name='indirect')
+    camP(c, 'D2STR', 'D2STR', 'GABA', ['syn'], .175, .28)
+    camP(c, 'D2STR', 'D1STR', 'GABA', ['syn'], .20, .28)
+    camP(c, 'D2STR', 'GPeP', 'GABA', ['syn'], .7, 1.72, name='indirect')
 
-    cd_preFSI = deepcopy(cd_pre)
-    cd_preFSI['ResetPot'] = -50
-    FSI = makePop("FSI", [GABA, [AMPA, 800, 4.1, 1.3], NMDA], cd_preFSI)
-    camP(c, 'FSI', 'FSI', 'GABA', ['all'], .8, .7)
-    camP(c, 'FSI', 'D1STR', 'GABA', ['all'], .56, 1.21)
-    camP(c, 'FSI', 'D2STR', 'GABA', ['all'], .55, 1.2)
+    FSI = makePop("FSI", [GABA, [AMPA, 800, 1.5, 3.], NMDA], cd_pre, {'C': 0.2, 'Taum': 10})
+    camP(c, 'FSI', 'FSI', 'GABA', ['all'], .85, 1.05)
+    camP(c, 'FSI', 'D1STR', 'GABA', ['all'], .74, 1.25)
+    camP(c, 'FSI', 'D2STR', 'GABA', ['all'], .7, 1.25)
 
     GPeP = makePop("GPeP", [[GABA, 2000, 2, 2], [AMPA, 800, 2, 5], NMDA],
                     cd_pre, {'N': 2500, 'tauhm': 10, 'g_T': 0.01})
     camP(c, 'GPeP', 'GPeP', 'GABA', ['all'], 0.02, 1.5)
     camP(c, 'GPeP', 'STNE', 'GABA', ['syn'], 0.02, 0.4)
-    # camP(c, 'GPeP', 'GPi', 'GABA', ['syn'], 1, 0.01)
     camP(c, 'GPeP', 'GPi', 'GABA', ['syn'], 1, 0.0122)
 
     STNE = makePop("STNE", [GABA, [AMPA, 800, config['STNExtEff'],
@@ -485,15 +541,30 @@ def describeBG(**kwargs):
     camP(c, 'STNE', 'GPi', 'NMDA', ['all'], 1, 0.0315)
 
     GPi = makePop("GPi", [ GABA, [AMPA, 800, config['GPiExtEff'], 0.8], NMDA], cd_pre)
-    camP(c, 'GPi', 'Th', 'GABA', ['syn'], .85, 0.085)
+    camP(c, 'GPi', 'Th', 'GABA', ['syn'], .85, 0.07)
 
     Th = makePop('Th', [GABA, [AMPA, 800, 2.5, 2.15], NMDA], cd_pre)
     camP(c, 'Th', 'D1STR', 'AMPA', ['all'], 0.5, config['ThSTR'])
     camP(c, 'Th', 'D2STR', 'AMPA', ['all'], 0.5, config['ThSTR'])
     camP(c, 'Th', 'FSI', 'AMPA', ['all'], 0.25, config['ThSTR']/1.25)
-    camP(c, 'Th', 'LIP', 'NMDA', ['all'], 0.5, config['ThCx'], name='thcx')
+    camP(c, 'Th', 'LIP', 'NMDA', ['all'], 0.25, config['ThCx'], name='thcx')
+    camP(c, 'Th', 'LIPI', 'NMDA', ['all'], 0.25, config['ThCx'], name='thcxi')
     action_channel = makeChannel('choices', [GPi, STNE, GPeP, D1STR, D2STR, LIP, Th])
-    brain = makeChannel('brain', [FSI], [action_channel])
+
+    ineuronPops = [FSI]
+
+    if config['rampingCTX']:
+        camP(c, 'LIP', 'LIP', ['AMPA', 'NMDA'], ['all'], .15, [0.018, 0.15])
+        camP(c, 'LIP', 'LIPI', ['AMPA', 'NMDA'], ['all'], .075, [0.024, 0.13])
+
+        LIPI = makePop("LIPI", [GABA, [AMPA, 800, 1.15, 3], NMDA], cd_pre, { 'N': 700, 'C': 0.2, 'Taum': 10})
+        camP(c, 'LIPI', 'LIP', 'GABA', ['all'], .6, 1.12)
+        camP(c, 'LIPI', 'LIPI', 'GABA', ['all'], 1, 1.075)
+
+        ineuronPops.append(LIPI)
+
+    brain = makeChannel('brain', ineuronPops, [action_channel])
+
     return (brain, c, h)
 
 
@@ -543,8 +614,8 @@ def mcInfo(**kwargs):
     # hes.append(makeHandleEvent('reset', 0, 'motor', [], config['BaseStim']))
     hes.append(makeHandleEvent('wrong stimulus', config['Start'], 'sensory', [], config['WrongStim']))
     hes.append(makeHandleEvent('right stimulus', config['Start'], 'sensory', [0], config['RightStim']))
-    hes.append(makeHandleEvent('hyperdirect', config['Start'], 'threshold', [], config['STNExtFreq']+.65))
-    hes.append(makeHandleEvent('hyperdirect', config['Start'], 'threshold', [0], config['STNExtFreq']+.65))
+    hes.append(makeHandleEvent('hyperdirect', config['Start'], 'threshold', [], config['STNExtFreq']+.75))
+    hes.append(makeHandleEvent('hyperdirect', config['Start'], 'threshold', [0], config['STNExtFreq']+.75))
     hes.append(makeHandleEvent('dynamic cutoff', config['Start'], 'out', [], config['Dynamic'], 'EndTrial'))
 
     houts = []
@@ -552,7 +623,7 @@ def mcInfo(**kwargs):
                                  config['Start'], 'out', [], config['Dynamic']))
 
     # timelimit = 1800
-    timelimit = 700
+    timelimit = 2000
 
     return (dims, hts, hes, houts, timelimit)
 
@@ -700,9 +771,13 @@ def readTrialResult(sweepnumber, trial):
 
 def readAllTrialResults(trials, offset=0, sweepcount=1):
     allresults = []
+    trialID = lambda f: int(f.split('popfreqs')[1].split('.')[0])
+
     for sweepnumber in range(sweepcount):
         results = []
-        for trial in range(trials):
+        files = os.listdir(getDirectory(sweepnumber))
+        trials = [trialID(f) for f in files if 'popfreqs' in f]
+        for trial in trials:
             results.append(readTrialResult(sweepnumber, trial + offset))
         allresults.append(results)
     return allresults
@@ -750,6 +825,8 @@ def setDirectory(prefix='autotest'):
 
 def getDirectory(sweepnumber=0):
     return ''.join([directoryprefix, str(sweepnumber)])
+
+
 
 
 def configureSweep(sc=0, **kwargs):
