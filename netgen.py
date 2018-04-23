@@ -433,34 +433,6 @@ def compileAndRunSweepALL(trials=1, offset=0, sweepcount=1):
             else:
                 Popen('./sim -ns -n{} -s{}'.format(str(trial+offset), str(seed+trial+offset)), shell=True, cwd=outdir)
 
-
-# def configureSweep_noisy(sc=0, stimArray=None, **kwargs):
-#     #call('mkdir -p ' + directoryprefix, shell=True)
-#     #call('mkdir -p ' + directory, shell=True)
-#     ntrials = 1
-#     if stimArray is not None:
-#         ntrials = stimArray.size
-#     for trial in range(0, ntrials):
-#         if stimArray is not None:
-#             kwargs['RightStim'] = stimArray[trial]
-#             kwargs['WrongStim'] = stimArray[trial]
-#             print(kwargs['WrongStim'])
-#         for key, value in kwargs.items():
-#             if isinstance(value, list):
-#                 selected = {}
-#                 selected.update(kwargs)
-#                 for opt in value:
-#                     selected[key] = opt
-#                     sc = configureSweep_noisy(sc, **selected)
-#                 return sc
-#         configureExperiment(**kwargs)
-#         directory = getDirectory(0)
-#         for filename in ['network.conf', 'network.pro', 'network.pickle']:
-#             call('mv ' + filename + ' ' + directory + '/' + filename, shell=True)
-#         compileAndRun(1, trial, 0)
-#     return sc + 1
-#
-
 def getCellDefaults():
     return {'N': 250,
             'C': 0.5,
@@ -496,7 +468,6 @@ def describeBG(**kwargs):
 
     # camP(connections, src, targ, receptor, preset=['all'], connectivity=1,
     #       efficacy=1, STFT=0, STFP=0, STDT=0, STDP=0, name='', cmtype='eff', conmatrix=[])
-
 
 
     config.update(kwargs)
@@ -544,9 +515,9 @@ def describeBG(**kwargs):
     camP(c, 'GPi', 'Th', 'GABA', ['syn'], .85, 0.07)
 
     Th = makePop('Th', [GABA, [AMPA, 800, 2.5, 2.15], NMDA], cd_pre)
-    camP(c, 'Th', 'D1STR', 'AMPA', ['all'], 0.5, config['ThSTR'])
-    camP(c, 'Th', 'D2STR', 'AMPA', ['all'], 0.5, config['ThSTR'])
-    camP(c, 'Th', 'FSI', 'AMPA', ['all'], 0.25, config['ThSTR']/1.25)
+    camP(c, 'Th', 'D1STR', 'AMPA', ['all'], 0.35, config['ThSTR'])
+    camP(c, 'Th', 'D2STR', 'AMPA', ['all'], 0.35, config['ThSTR'])
+    camP(c, 'Th', 'FSI', 'AMPA', ['all'], 0.15, config['ThSTR']/1.25)
     camP(c, 'Th', 'LIP', 'NMDA', ['all'], 0.25, config['ThCx'], name='thcx')
     camP(c, 'Th', 'LIPI', 'NMDA', ['all'], 0.25, config['ThCx'], name='thcxi')
     action_channel = makeChannel('choices', [GPi, STNE, GPeP, D1STR, D2STR, LIP, Th])
@@ -555,7 +526,7 @@ def describeBG(**kwargs):
 
     if config['rampingCTX']:
         camP(c, 'LIP', 'LIP', ['AMPA', 'NMDA'], ['all'], .15, [0.018, 0.15])
-        camP(c, 'LIP', 'LIPI', ['AMPA', 'NMDA'], ['all'], .075, [0.024, 0.13])
+        camP(c, 'LIP', 'LIPI', ['AMPA', 'NMDA'], ['all'], .07, [0.024, 0.10])
 
         LIPI = makePop("LIPI", [GABA, [AMPA, 800, 1.15, 3], NMDA], cd_pre, { 'N': 700, 'C': 0.2, 'Taum': 10})
         camP(c, 'LIPI', 'LIP', 'GABA', ['all'], .6, 1.12)
@@ -623,7 +594,7 @@ def mcInfo(**kwargs):
                                  config['Start'], 'out', [], config['Dynamic']))
 
     # timelimit = 1800
-    timelimit = 2000
+    timelimit = 1000
 
     return (dims, hts, hes, houts, timelimit)
 
