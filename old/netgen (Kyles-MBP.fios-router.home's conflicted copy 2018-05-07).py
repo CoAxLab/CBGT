@@ -476,6 +476,7 @@ def describeBG(**kwargs):
     #       efficacy=1, STFT=0, STFP=0, STDT=0, STDP=0, name='', cmtype='eff', conmatrix=[])
 
 
+
     config.update(kwargs)
     c = []
     h = []
@@ -486,44 +487,44 @@ def describeBG(**kwargs):
 
     LIP = makePop("LIP", [GABA, [AMPA, 800, 2.8, 2.2], NMDA], cd_pre, {'N': 680})
 
-    camP(c, 'LIP', 'D1STR', ['AMPA', 'NMDA'], ['syn'], 0.45, [config['CxSTR'], config['CxSTR']], name='cxd')
-    camP(c, 'LIP', 'D2STR',  ['AMPA', 'NMDA'], ['syn'], 0.45, [config['CxSTR'], config['CxSTR']], name='cxi')
+    camP(c, 'LIP', 'D1STR', ['AMPA', 'NMDA'], ['syn'], 0.35, [config['CxSTR'], config['CxSTR']], name='cxd')
+    camP(c, 'LIP', 'D2STR',  ['AMPA', 'NMDA'], ['syn'], 0.35, [config['CxSTR'], config['CxSTR']], name='cxi')
     camP(c, 'LIP', 'FSI', 'AMPA', ['all'], 0.45, config['CxFSI'], name='cxfsi')
     camP(c, 'LIP', 'Th', ['AMPA', 'NMDA'], ['all'], 0.35, [config['CxTh'], config['CxTh']])
 
     D1STR = makePop("D1STR", [GABA, [AMPA, 800, 4., 1.3], NMDA], cd_pre)
-    camP(c, 'D1STR', 'D1STR', 'GABA', ['syn'], .135, .28)
-    camP(c, 'D1STR', 'D2STR', 'GABA', ['syn'], .135, .28)
-    camP(c, 'D1STR', 'GPi', 'GABA', ['syn'], .55, 1.05, name='direct')
+    camP(c, 'D1STR', 'D1STR', 'GABA', ['syn'], .125, .28)
+    camP(c, 'D1STR', 'D2STR', 'GABA', ['syn'], .125, .28)
+    camP(c, 'D1STR', 'GPi', 'GABA', ['syn'], .55, .95, name='direct')
 
     D2STR = makePop("D2STR", [GABA, [AMPA, 800, 4., 1.3], NMDA], cd_pre)
-    camP(c, 'D2STR', 'D2STR', 'GABA', ['syn'], .135, .28)
-    camP(c, 'D2STR', 'D1STR', 'GABA', ['syn'], .15, .28)
-    camP(c, 'D2STR', 'GPeP', 'GABA', ['syn'], .74, 1.65, name='indirect')
+    camP(c, 'D2STR', 'D2STR', 'GABA', ['syn'], .125, .28)
+    camP(c, 'D2STR', 'D1STR', 'GABA', ['syn'], .165, .28)
+    camP(c, 'D2STR', 'GPeP', 'GABA', ['syn'], .7, 1.35, name='indirect')
 
-    FSI = makePop("FSI", [GABA, [AMPA, 800, 1.55, 3.], NMDA], cd_pre, {'C': 0.2, 'Taum': 10})
+    FSI = makePop("FSI", [GABA, [AMPA, 800, 1.5, 2.9], NMDA], cd_pre, {'C': 0.2, 'Taum': 10})
     camP(c, 'FSI', 'FSI', 'GABA', ['all'], .85, 1.15)
-    camP(c, 'FSI', 'D1STR', 'GABA', ['all'], .65, 1.2)
-    camP(c, 'FSI', 'D2STR', 'GABA', ['all'], .62, 1.2)
+    camP(c, 'FSI', 'D1STR', 'GABA', ['all'], .7, 1.15)
+    camP(c, 'FSI', 'D2STR', 'GABA', ['all'], .67, 1.15)
 
-    GPeP = makePop("GPeP", [[GABA, 2000, 2, 2], [AMPA, 800, 2, 4.85], NMDA],
-                    cd_pre, {'N': 2500, 'g_T': 0.06})
+    GPeP = makePop("GPeP", [[GABA, 2000, 2, 2], [AMPA, 800, 2, 5], NMDA],
+                    cd_pre, {'N': 2000, 'g_T': 0.05})
     camP(c, 'GPeP', 'GPeP', 'GABA', ['all'], 0.02, 1.5)
     camP(c, 'GPeP', 'STNE', 'GABA', ['syn'], 0.02, 0.4)
-    camP(c, 'GPeP', 'GPi', 'GABA', ['syn'], 1, 0.012)
+    camP(c, 'GPeP', 'GPi', 'GABA', ['syn'], 1., 0.0128)
 
     STNE = makePop("STNE", [GABA, [AMPA, 800, config['STNExtEff'],
-                config['STNExtFreq']], NMDA], cd_pre, {'N': 2500, 'g_T': 0.06})
+                config['STNExtFreq']], NMDA], cd_pre, {'N': 2500, 'g_T': 0.05})
     camP(c, 'STNE', 'GPeP', ['AMPA', 'NMDA'], ['syn'], 0.0485, [0.07, 4])
-    camP(c, 'STNE', 'GPi', 'NMDA', ['all'], 1, 0.0314)
+    camP(c, 'STNE', 'GPi', 'NMDA', ['all'], 1., 0.0314)
 
     GPi = makePop("GPi", [ GABA, [AMPA, 800, config['GPiExtEff'], 0.8], NMDA], cd_pre)
     camP(c, 'GPi', 'Th', 'GABA', ['syn'], .85, 0.067)
 
-    Th = makePop('Th', [GABA, [AMPA, 800, 2.5, 2.2], NMDA], cd_pre)
-    camP(c, 'Th', 'D1STR', 'AMPA', ['syn'], 0.45, config['ThSTR'])
-    camP(c, 'Th', 'D2STR', 'AMPA', ['syn'], 0.45, config['ThSTR'])
-    camP(c, 'Th', 'FSI', 'AMPA', ['all'], 0.25, config['ThSTR'])
+    Th = makePop('Th', [GABA, [AMPA, 800, 2.5, 2.25], NMDA], cd_pre)
+    camP(c, 'Th', 'D1STR', 'AMPA', ['syn'], 0.5, config['ThSTR'])
+    camP(c, 'Th', 'D2STR', 'AMPA', ['syn'], 0.5, config['ThSTR'])
+    camP(c, 'Th', 'FSI', 'AMPA', ['all'], 0.25, config['ThSTR']/1.35)
     camP(c, 'Th', 'LIP', 'NMDA', ['all'], 0.25, config['ThCx'], name='thcx')
     camP(c, 'Th', 'LIPI', 'NMDA', ['all'], 0.25, config['ThCx'], name='thcxi')
     action_channel = makeChannel('choices', [GPi, STNE, GPeP, D1STR, D2STR, LIP, Th])
@@ -531,11 +532,11 @@ def describeBG(**kwargs):
     ineuronPops = [FSI]
 
     if config['rampingCTX']:
-        camP(c, 'LIP', 'LIP', ['AMPA', 'NMDA'], ['all'], .13, [0.0127, 0.15])
-        camP(c, 'LIP', 'LIPI', ['AMPA', 'NMDA'], ['all'], .0725, [0.013, 0.125])
+        camP(c, 'LIP', 'LIP', ['AMPA', 'NMDA'], ['all'], .11, [0.0127, 0.15])
+        camP(c, 'LIP', 'LIPI', ['AMPA', 'NMDA'], ['all'], .075, [0.025, 0.15])
 
         LIPI = makePop("LIPI", [GABA, [AMPA, 640, .6, 1.05], NMDA], cd_pre, { 'N': 620, 'C': 0.2, 'Taum': 10})
-        camP(c, 'LIPI', 'LIP', 'GABA', ['all'], .5, 1.05)
+        camP(c, 'LIPI', 'LIP', 'GABA', ['all'], .6, 1.05)
         camP(c, 'LIPI', 'LIPI', 'GABA', ['all'], 1, 1.075)
 
         ineuronPops.append(LIPI)

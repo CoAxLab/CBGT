@@ -1,0 +1,47 @@
+\begin{table}[h!] \label{tab.ConnProb}
+\centering
+\caption{Synaptic efficacy ($g$) and probability ($P$) of connections between populations in CBGT network, as well as postsynaptic receptor types (AMPA, NMDA, and GABA). The topology of each connection is labeled as either diffuse, to denote connections with a $P>0$ of projecting to left and right action channels, or focal, to denote connections that were restricted within each channel.}
+\label{table:connTable}
+\begin{tabular}{l | ccll}
+{\bf Connection} & {$P$} & {$g$ (nS)} & {\bf Topology} & {\bf Receptor(s)} \\ [1ex] \hline \\ [-1.5ex]
+
+$Cx \rightarrow Cx$     &     0.325 &   0.0127  & diffuse  & AMPA       \\
+$Cx \rightarrow Cx$     &     0.325 &   0.15    & diffuse  & NMDA       \\
+$Cx \rightarrow CxI$    &     0.181 &   0.013   & diffuse  & AMPA       \\
+$Cx \rightarrow CxI$    &     0.181 &   0.125   & diffuse  & NMDA       \\
+$Cx \rightarrow FSI$    &     1.00  &   0.18    & diffuse  & AMPA       \\
+$Cx \rightarrow dMSN$   &     1.00  &   0.225   & focal    & NMDA, AMPA \\
+$Cx \rightarrow iMSN$   &     1.00  &   0.225   & focal    & NMDA, AMPA \\
+$Cx \rightarrow Th$     &     0.87  &   0.0335  & diffuse  & NMDA, AMPA \\ [1ex] \hline \\ [-1.5ex]
+
+$CxI \rightarrow CxI$   &     1.00  &   2.3125  & diffuse  & GABA       \\
+$CxI \rightarrow Cx$    &     1.00  &   1.3125  & diffuse  & GABA       \\ [1ex] \hline \\ [-1.5ex]
+
+$dMSN \rightarrow dMSN$ &     0.34  &   0.28    & focal    & GABA       \\
+$dMSN \rightarrow iMSN$ &     0.34  &   0.28    & focal    & GABA       \\
+$dMSN \rightarrow GPi$  &     1.00  &   1.44    & focal    & GABA       \\
+$iMSN \rightarrow iMSN$ &     0.34  &   0.28    & focal    & GABA       \\
+$iMSN \rightarrow dMSN$ &     0.38  &   0.28    & focal    & GABA       \\
+$iMSN \rightarrow GPe$  &     1.00  &   3.05    & focal    & GABA       \\ [1ex] \hline \\ [-1.5ex]
+
+$FSI \rightarrow FSI$   &     1.00  &   2.45    & diffuse  & GABA       \\
+$FSI \rightarrow dMSN$  &     1.00  &   1.95    & diffuse  & GABA       \\
+$FSI \rightarrow iMSN$  &     1.00  &   1.85    & diffuse  & GABA       \\ [1ex] \hline \\ [-1.5ex]
+
+$GPe \rightarrow GPe$   &     0.05  &   1.50    & diffuse  & GABA       \\
+$GPe \rightarrow STN$   &     0.05  &   0.40    & focal    & GABA       \\
+$GPe \rightarrow GPi$   &     1.00  &   0.03    & focal    & GABA       \\ [1ex] \hline \\ [-1.5ex]
+
+$STN \rightarrow GPe$   &     0.12  &   0.07    & focal    & AMPA       \\
+$STN \rightarrow GPe$   &     0.12  &   4.00    & focal    & NMDA       \\
+$STN \rightarrow GPi$   &     1.00  &   0.078   & diffuse  & NMDA       \\ [1ex] \hline \\ [-1.5ex]
+
+$GPi \rightarrow Th$    &     1.00  &   0.142   & focal    & GABA       \\ [1ex] \hline \\ [-1.5ex]
+
+$Th \rightarrow Cx$     &     0.625 &   0.015   & diffuse  & NMDA       \\
+$Th \rightarrow CxI$    &     0.625 &   0.015   & diffuse  & NMDA       \\
+$Th \rightarrow dMSN$   &     1.00  &   0.337   & focal    & AMPA       \\
+$Th \rightarrow iMSN$   &     1.00  &   0.337   & focal    & AMPA       \\
+$Th \rightarrow FSI$    &     0.625 &   0.30    & diffuse  & AMPA       \\
+\end{tabular}
+\end{table}
