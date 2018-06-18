@@ -1,4 +1,9 @@
-// gcc -o test/progA BG_inh_pathway_spedup.c rando2.h -lm
+// gcc -o test/sim BG_inh_pathway_spedup.c rando2.h -lm
+// or
+// gcc -o test/sim BG_inh_pathway_spedup.c rando2.h -lm -std=c99
+//
+// ./sim -ns -n# -s#
+
 
 //###########################################
 // BG_inh_pathway.c:
@@ -109,14 +114,22 @@ float gasdev()
 
 // types of receptors
 
-#define MAXRECEPTORS 3
+#define MAXRECEPTORS 4
 
 #define AMPA 0
 #define GABA 1
 #define NMDA 2
+#define DPMN 3
 
 // =============================================================
 // Structures for the simulation
+
+// utility structures
+
+typedef struct {
+  char *string;
+  float *variable;
+} PairFloat;
 
 // --------------------- SYNAPSE structure ---------------------
 
@@ -206,6 +219,29 @@ typedef struct {
   float V_h;
   float g_T;
   float h; // gating variable for burst;
+
+  // dopaminergic learning
+  int dpmn_type; // 0 = none, 1 = D1, 2 = D2
+  float dpmn_alpha;
+  float dpmn_dPRE;
+  float dpmn_dPOST;
+  float dpmn_tauE;
+  float dpmn_tauPRE;
+  float dpmn_tauPOST;
+  float dpmn_c;
+  float dpmn_wmax;
+  float dpmn_taug;
+  float dpmn_Q1;
+  float dpmn_Q2;
+  float dpmn_APRE;
+  float dpmn_APOST;
+  float dpmn_E;
+  float dpmn_w;
+  float dpmn_XPRE;
+  float dpmn_XPOST;
+  float dpmn_DA;
+  float dpmn_tauDOP;
+
 } Neuron;
 
 
@@ -228,7 +264,7 @@ typedef struct {
 
 } Population;
 
-#define MAXP 32
+#define MAXP 32 // max number of populations
 #define MAXEXTMEM 20
 
 int Npop;
@@ -313,6 +349,29 @@ typedef struct {
   float V_h;
   float g_T;
   float h;
+
+  // dopaminergic learning
+  int dpmn_type; // 0 = none, 1 = D1, 2 = D2
+  float dpmn_alpha;
+  float dpmn_dPRE;
+  float dpmn_dPOST;
+  float dpmn_tauE;
+  float dpmn_tauPRE;
+  float dpmn_tauPOST;
+  float dpmn_c;
+  float dpmn_wmax;
+  float dpmn_taug;
+  float dpmn_Q1;
+  float dpmn_Q2;
+  float dpmn_APRE;
+  float dpmn_APOST;
+  float dpmn_E;
+  float dpmn_w;
+  float dpmn_XPRE;
+  float dpmn_XPOST;
+  float dpmn_DA;
+  float dpmn_tauDOP;
+
 } PopDescr;
 
 PopDescr PopD[MAXP];
@@ -320,6 +379,7 @@ PopDescr PopD[MAXP];
 // ===============================================================
 // Protocol descriptors
 
+#define MAXSTAGES 20 // for multistage simulations
 #define MAXEVENTS 200
 
 #define ENDOFTRIAL 1
@@ -343,12 +403,17 @@ typedef struct {
 int NEvents=0;
 int CEvent; // current event
 float NextEventTime=0.;
-EventDescr Events[MAXEVENTS];
+EventDescr Events[MAXSTAGES][MAXEVENTS];
 
 // dynamic cutoff
 int NCutoffs=0;
 int CCutoff;
-EventDescr Cutoffs[MAXEVENTS];
+EventDescr Cutoffs[MAXSTAGES][MAXEVENTS];
+
+// staging
+int NStages = 0;
+int CStage = 0;
+int CStageStart = 0;
 
 // Multitrial version:
 
@@ -411,13 +476,11 @@ int PopulationCode(char *s)
   int p;
 
 
-  for(p=0;p<Npop;p++)
-    {
-
-      if(strcmp(PopD[p].Label,s)==0) {
-  return p;
-      }
+  for (p=0; p<Npop; p++) {
+    if (strcmp(PopD[p].Label,s) == 0) {
+      return p;
     }
+  }
   return -1;
 }
 
@@ -428,12 +491,11 @@ int ReceptorCode(char *s,int p)
 {
   int r;
 
-  for(r=0;r<PopD[p].Nreceptors;r++)
-    {
-      if(strcmp(PopD[p].ReceptorLabel[r],s)==0) {
-  return r;
-      }
+  for (r=0; r<PopD[p].Nreceptors; r++) {
+    if (strcmp(PopD[p].ReceptorLabel[r],s) == 0) {
+      return r;
     }
+  }
   return -1;
 }
 
@@ -592,290 +654,228 @@ int DescribeNetwork() {
       continue;
     }
 
-    // paramters for the population
+    // parameters for the population
+    if (currentpopflag) {
 
-    if (strncmp(s, "N=", 2) == 0 && currentpopflag) {
-      PopD[currentpop].Ncells = atoi(s + 2);
-      report("  N=%d\n", PopD[currentpop].Ncells);
-      continue;
-    }
-    if (strncmp(s, "C=", 2) == 0 && currentpopflag) {
-      PopD[currentpop].C = atof(s + 2);
-      report("  C=%f nF\n", (double)PopD[currentpop].C);
-      continue;
-    }
-    if (strncmp(s, "Taum=", 5) == 0 && currentpopflag) {
-      PopD[currentpop].Taum = atof(s + 5);
-      report("  Membrane time constant=%f ms\n", (double)PopD[currentpop].Taum);
-      continue;
-    }
-    if (strncmp(s, "RestPot=", 8) == 0 && currentpopflag) {
-      PopD[currentpop].RestPot = atof(s + 8);
-      report("  Resting potential=%f mV\n", (double)PopD[currentpop].RestPot);
-      continue;
-    }
-    if (strncmp(s, "ResetPot=", 9) == 0 && currentpopflag) {
-      PopD[currentpop].ResetPot = atof(s + 9);
-      report("  Reset potential=%f mV\n", (double)PopD[currentpop].ResetPot);
-      continue;
-    }
-    if (strncmp(s, "Threshold=", 10) == 0 && currentpopflag) {
-      PopD[currentpop].Threshold = atof(s + 10);
-      report("  Threshold =%f mV\n", (double)PopD[currentpop].Threshold);
-      continue;
-    }
+      int paramnum;
+      int found;
+      found = 0;
 
-    if (strncmp(s, "RestPot_ca=", 11) == 0 && currentpopflag) {
-      PopD[currentpop].Vk = atof(s + 11);
-      report("  RestPot_ca =%f mV\n", (double)PopD[currentpop].Vk);
-      continue;
-    }
-
-    if (strncmp(s, "Alpha_ca=", 9) == 0 && currentpopflag) {
-      PopD[currentpop].alpha_ca = atof(s + 9);
-      report("  Alpha_ca =%f mV\n", (double)PopD[currentpop].alpha_ca);
-      continue;
-    }
-
-    if (strncmp(s, "Tau_ca=", 7) == 0 && currentpopflag) {
-      PopD[currentpop].tau_ca = atof(s + 7);
-      report("  Tau_ca =%f mV\n", (double)PopD[currentpop].tau_ca);
-      continue;
-    }
-
-    if (strncmp(s, "Eff_ca=", 7) == 0 && currentpopflag) {
-      PopD[currentpop].g_ahp = atof(s + 7);
-      report("  Eff_ca =%f mV\n", (double)PopD[currentpop].g_ahp);
-      continue;
-    }
-
-    if (strncmp(s, "g_ADR_Max=", 10) == 0 && currentpopflag) {
-      PopD[currentpop].g_adr_max = atof(s + 10);
-      report("  g_adr_max=%f mV\n", (double)PopD[currentpop].g_adr_max);
-      continue;
-    }
-
-    if (strncmp(s, "V_ADR_h=", 8) == 0 && currentpopflag) {
-      PopD[currentpop].Vadr_h = atof(s + 8);
-      report("  V_ADR_h=%f mV\n", (double)PopD[currentpop].Vadr_h);
-      continue;
-    }
-
-    if (strncmp(s, "V_ADR_s=", 8) == 0 && currentpopflag) {
-      PopD[currentpop].Vadr_s = atof(s + 8);
-      report("  V_ADR_s=%f mV\n", (double)PopD[currentpop].Vadr_h);
-      continue;
-    }
-
-    if (strncmp(s, "ADRRevPot=", 10) == 0 && currentpopflag) {
-      PopD[currentpop].ADRRevPot = atof(s + 10);
-      report("  ADRRevPot=%f mV\n", (double)PopD[currentpop].ADRRevPot);
-      continue;
-    }
-
-    if (strncmp(s, "g_k_Max=", 8) == 0 && currentpopflag) {
-      PopD[currentpop].g_k_max = atof(s + 8);
-      report("  g_k_max=%f mV\n", (double)PopD[currentpop].g_k_max);
-      continue;
-    }
-
-    if (strncmp(s, "V_k_h=", 6) == 0 && currentpopflag) {
-      PopD[currentpop].Vk_h = atof(s + 6);
-      report("  V_k_h=%f mV\n", (double)PopD[currentpop].Vk_h);
-      continue;
-    }
-
-    if (strncmp(s, "V_k_s=", 6) == 0 && currentpopflag) {
-      PopD[currentpop].Vk_s = atof(s + 6);
-      report("  V_k_s=%f mV\n", (double)PopD[currentpop].Vk_h);
-      continue;
-    }
-    if (strncmp(s, "tau_k_max=", 10) == 0 && currentpopflag) {
-      PopD[currentpop].tau_k_max = atof(s + 10);
-      report("  tau_k_max=%f mV\n", (double)PopD[currentpop].tau_k_max);
-      continue;
-    }
-
-    if (strncmp(s, "tauhm=", 6) == 0 && currentpopflag) {
-      PopD[currentpop].tauhm = atof(s + 6);
-      report("  tauhm=%f ms\n", (double)PopD[currentpop].tauhm);
-      continue;
-    }
-    if (strncmp(s, "tauhp=", 6) == 0 && currentpopflag) {
-      PopD[currentpop].tauhp = atof(s + 6);
-      report("  tauhp=%f ms\n", (double)PopD[currentpop].tauhp);
-      continue;
-    }
-    if (strncmp(s, "V_h=", 4) == 0 && currentpopflag) {
-      PopD[currentpop].V_h = atof(s + 4);
-      report("  V_h=%f mV\n", (double)PopD[currentpop].V_h);
-      continue;
-    }
-    if (strncmp(s, "V_T=", 4) == 0 && currentpopflag) {
-      PopD[currentpop].V_T = atof(s + 4);
-      report("  V_T=%f mV\n", (double)PopD[currentpop].V_T);
-      continue;
-    }
-    if (strncmp(s, "g_T=", 4) == 0 && currentpopflag) {
-      PopD[currentpop].g_T = atof(s + 4);
-      report("  g_T=%f mS\n", (double)PopD[currentpop].g_T);
-      continue;
-    }
-    // receptor paramters
-    if (strncmp(s, "Receptor:", 9) == 0 && currentpopflag) {
-      currentreceptorflag = 1;
-      s += 9;
-      while (*s == ' ') s++;
-      currentreceptor = ReceptorCode(s, currentpop);
-      if (currentreceptor == -1) {
-        printf("ERROR: Unknown receptor type\n");
-        return -1;
+      if (strncmp(s, "N=", 2) == 0) {
+        PopD[currentpop].Ncells = atoi(s + 2);
+        report("  N=%d\n", PopD[currentpop].Ncells);
+        continue;
       }
-      if (strncmp(s, "NMDA", 4) ==
-          0) {  // activate magnesium block for NMDA type
-        PopD[currentpop].MgFlag[currentreceptor] = 1;
-      } else
-        PopD[currentpop].MgFlag[currentreceptor] = 0;
-      report("Receptor %d: %s (Mg block: %d)\n", currentreceptor,
-             PopD[currentpop].ReceptorLabel[currentreceptor],
-             PopD[currentpop].MgFlag[currentreceptor]);
 
-      PopD[currentpop].ExtEffSD[currentreceptor] = 0;
-      PopD[currentpop].FreqExtSD[currentreceptor] = 0;
-      continue;
-    }
+      //int dpmn_type; // 0 = none, 1 = D1, 2 = D2
+      if (strncmp(s, "dpmn_type=", 2) == 0) {
+        PopD[currentpop].dpmn_type = atoi(s + 2);
+        report("  dpmn_type=%d\n", PopD[currentpop].dpmn_type);
+        continue;
+      }
+
+      // only float parameters, because array can only hold one type
+      PairFloat popparams[128];
+      popparams[0] = (PairFloat){"C", &PopD[currentpop].C}; // (nF)
+      popparams[1] = (PairFloat){"Taum", &PopD[currentpop].Taum}; // membrane time constant (ms)
+      popparams[2] = (PairFloat){"RestPot", &PopD[currentpop].RestPot}; // resting potential (mV)
+      popparams[3] = (PairFloat){"ResetPot", &PopD[currentpop].ResetPot}; // reset potential (mV)
+      popparams[4] = (PairFloat){"Threshold", &PopD[currentpop].Threshold}; // (mV)
+      popparams[5] = (PairFloat){"RestPot_ca", &PopD[currentpop].Vk}; // (mV)
+      popparams[6] = (PairFloat){"Alpha_ca", &PopD[currentpop].alpha_ca}; // (mV)
+      popparams[7] = (PairFloat){"Tau_ca", &PopD[currentpop].tau_ca}; // (mV)
+      popparams[8] = (PairFloat){"Eff_ca", &PopD[currentpop].g_ahp}; // (mV)
+      popparams[9] = (PairFloat){"g_ADR_Max", &PopD[currentpop].g_adr_max}; // (mV)
+      popparams[10] = (PairFloat){"V_ADR_h", &PopD[currentpop].Vadr_h}; // (mV)
+      popparams[11] = (PairFloat){"V_ADR_s", &PopD[currentpop].Vadr_s}; // (mV)
+      popparams[12] = (PairFloat){"ADRRevPot", &PopD[currentpop].ADRRevPot}; // (mV)
+      popparams[13] = (PairFloat){"g_k_Max", &PopD[currentpop].g_k_max}; // (mV)
+      popparams[14] = (PairFloat){"V_k_h", &PopD[currentpop].Vk_h}; // (mV)
+      popparams[15] = (PairFloat){"V_k_s", &PopD[currentpop].Vk_s}; // (mV)
+      popparams[16] = (PairFloat){"tau_k_max", &PopD[currentpop].tau_k_max}; // (mV)
+      popparams[17] = (PairFloat){"tauhm", &PopD[currentpop].tauhm}; // (ms)
+      popparams[18] = (PairFloat){"tauhp", &PopD[currentpop].tauhp}; // (ms)
+      popparams[19] = (PairFloat){"V_h", &PopD[currentpop].V_h}; // (mV)
+      popparams[20] = (PairFloat){"V_T", &PopD[currentpop].V_T}; // (mV)
+      popparams[21] = (PairFloat){"g_T", &PopD[currentpop].g_T}; // (mS)
+      // parameters for the population -- dopaminergic learning
+      popparams[22] = (PairFloat){"dpmn_alpha", &PopD[currentpop].dpmn_alpha};
+      popparams[23] = (PairFloat){"dpmn_dPRE", &PopD[currentpop].dpmn_dPRE};
+      popparams[24] = (PairFloat){"dpmn_dPOST", &PopD[currentpop].dpmn_dPOST};
+      popparams[25] = (PairFloat){"dpmn_tauE", &PopD[currentpop].dpmn_tauE};
+      popparams[26] = (PairFloat){"dpmn_tauPRE", &PopD[currentpop].dpmn_tauPRE};
+      popparams[27] = (PairFloat){"dpmn_tauPOST", &PopD[currentpop].dpmn_tauPOST};
+      popparams[28] = (PairFloat){"dpmn_c", &PopD[currentpop].dpmn_c};
+      popparams[29] = (PairFloat){"dpmn_wmax", &PopD[currentpop].dpmn_wmax};
+      popparams[30] = (PairFloat){"dpmn_taug", &PopD[currentpop].dpmn_taug};
+      popparams[31] = (PairFloat){"dpmn_Q1", &PopD[currentpop].dpmn_Q1};
+      popparams[32] = (PairFloat){"dpmn_Q2", &PopD[currentpop].dpmn_Q2};
+      popparams[33] = (PairFloat){"dpmn_APRE", &PopD[currentpop].dpmn_APRE};
+      popparams[34] = (PairFloat){"dpmn_APOST", &PopD[currentpop].dpmn_APOST};
+      popparams[35] = (PairFloat){"dpmn_E", &PopD[currentpop].dpmn_E};
+      popparams[36] = (PairFloat){"dpmn_w", &PopD[currentpop].dpmn_w};
+      popparams[37] = (PairFloat){"dpmn_XPRE", &PopD[currentpop].dpmn_XPRE};
+      popparams[38] = (PairFloat){"dpmn_XPOST", &PopD[currentpop].dpmn_XPOST};
+      popparams[39] = (PairFloat){"dpmn_DA", &PopD[currentpop].dpmn_DA};
+      popparams[40] = (PairFloat){"dpmn_tauDOP", &PopD[currentpop].dpmn_tauDOP};
+
+      for (paramnum = 0; paramnum < 41; paramnum++) {
+        PairFloat param;
+        param = popparams[paramnum];
+        int length;
+        length = strlen(param.string);
+        if (strncmp(s, param.string, length) == 0
+          && strncmp(s + length, "=", 1) == 0) {
+          *(param.variable) = atof(s + length + 1); // +1 to take into account the "="
+          report("  %s=%f\n", param.string, (double)*(param.variable));
+          found = 1;
+          break;
+        }
+      }
+      if (found) {
+        continue;
+      }
+
+      // receptor paramters
+      if (strncmp(s, "Receptor:", 9) == 0) {
+        currentreceptorflag = 1;
+        s += 9;
+        while (*s == ' ') s++;
+        currentreceptor = ReceptorCode(s, currentpop);
+        if (currentreceptor == -1) {
+          printf("ERROR: Unknown receptor type\n");
+          return -1;
+        }
+        if (strncmp(s, "NMDA", 4) ==
+            0) {  // activate magnesium block for NMDA type
+          PopD[currentpop].MgFlag[currentreceptor] = 1;
+        } else
+          PopD[currentpop].MgFlag[currentreceptor] = 0;
+        report("Receptor %d: %s (Mg block: %d)\n", currentreceptor,
+               PopD[currentpop].ReceptorLabel[currentreceptor],
+               PopD[currentpop].MgFlag[currentreceptor]);
+
+        PopD[currentpop].ExtEffSD[currentreceptor] = 0;
+        PopD[currentpop].FreqExtSD[currentreceptor] = 0;
+        continue;
+      }
+
+      if (currentreceptorflag) {
+
+        PairFloat recparams[128];
+        recparams[0] = (PairFloat){"Tau", &PopD[currentpop].Tau[currentreceptor]};
+        recparams[1] = (PairFloat){"RevPot", &PopD[currentpop].RevPots[currentreceptor]}; // Reversal potential (mV)
+        recparams[2] = (PairFloat){"FreqExt", &PopD[currentpop].FreqExt[currentreceptor]}; // Ext frequency (Hz)
+        recparams[3] = (PairFloat){"FreqExtSD", &PopD[currentpop].FreqExtSD[currentreceptor]}; // Ext frequency SD (Hz)
+        recparams[4] = (PairFloat){"MeanExtEff", &PopD[currentpop].MeanExtEff[currentreceptor]}; // Ext efficacy (nS)
+        recparams[5] = (PairFloat){"ExtEffSD", &PopD[currentpop].ExtEffSD[currentreceptor]}; // Ext efficacy SD (nS)
+        recparams[6] = (PairFloat){"MeanExtCon", &PopD[currentpop].MeanExtCon[currentreceptor]}; // Ext connections
+
+        for (paramnum = 0; paramnum < 7; paramnum++) {
+          PairFloat param;
+          param = recparams[paramnum];
+          int length;
+          length = strlen(param.string);
+          if (strncmp(s, param.string, length) == 0
+            && strncmp(s + length, "=", 1) == 0) {
+            *(param.variable) = atof(s + length + 1); // +1 to take into account the "="
+            report("  %s=%f\n", param.string, (double)*(param.variable));
+            found = 1;
+            break;
+          }
+        }
+        if (found) {
+          continue;
+        }
+
+      } // currentreceptorflag
+
+      // target populations
+      if (strncmp(s, "TargetPopulation:", 17) == 0) {
+        s += 17;
+        while (*s == ' ') s++;
+        currenttarget = PopulationCode(s);
+        if (currenttarget == -1) {
+          printf("Unknown target population: line %d\n", line);
+          return -1;
+        }
+        PopD[currentpop].TargetPops[PopD[currentpop].NTargetPops] = currenttarget;
+
+        report("Synapses targeting population: %s (%d)\n ",
+               PopD[currenttarget].Label, currenttarget);
+
+        PopD[currentpop].SynP[PopD[currentpop].NTargetPops].pv = 0;
+        PopD[currentpop].SynP[PopD[currentpop].NTargetPops].tauD = 1000;
+        PopD[currentpop].SynP[PopD[currentpop].NTargetPops].Fp = 0;
+        PopD[currentpop].SynP[PopD[currentpop].NTargetPops].tauF = 5000;
+        PopD[currentpop].SynP[PopD[currentpop].NTargetPops].EfficacySD = 0;
+        continue;
+      }
+
+      if (strncmp(s, "Connectivity=", 13) == 0) {
+        aux = atof(s + 13);
+        PopD[currentpop].SynP[PopD[currentpop].NTargetPops].Connectivity = aux;
+        report("  Connectivity=%f\n", (double)aux);
+      }
+      if (strncmp(s, "TargetReceptor=", 15) == 0) {
+        s += 15;
+        while (*s == ' ' || *s == '\t') s++;
+        auxi = ReceptorCode(s, currenttarget);
+        if (auxi == -1) {
+          printf("Unknown target receptor, line %d\n", line);
+          return -1;
+        }
+        PopD[currentpop].SynP[PopD[currentpop].NTargetPops].TargetReceptor = auxi;
+        report("  Target receptor code=%d\n", auxi);
+      }
+
+      if (strncmp(s, "MeanEff=", 8) == 0) {
+        aux = atof(s + 8);
+        PopD[currentpop].SynP[PopD[currentpop].NTargetPops].MeanEfficacy = aux;
+        report("  Mean efficacy=%f\n", (double)aux);
+      }
+      if (strncmp(s, "EffSD=", 6) == 0) {
+        aux = atof(s + 6);
+        PopD[currentpop].SynP[PopD[currentpop].NTargetPops].EfficacySD = aux;
+        report("  Efficacy SD=%f\n", (double)aux);
+      }
+
+      if (strncmp(s, "STDepressionP=", 14) == 0) {
+        aux = atof(s + 14);
+        PopD[currentpop].SynP[PopD[currentpop].NTargetPops].pv = aux;
+        report("  STDepressionP=%f mV\n", (double)aux);
+      }
+
+      if (strncmp(s, "STDepressionTau=", 16) == 0) {
+        aux = atof(s + 16);
+        PopD[currentpop].SynP[PopD[currentpop].NTargetPops].tauD = aux;
+        report("  STDepressionTau=%f mV\n", (double)aux);
+      }
+      if (strncmp(s, "STFacilitationP=", 16) == 0) {
+        aux = atof(s + 16);
+        PopD[currentpop].SynP[PopD[currentpop].NTargetPops].Fp = aux;
+        report("  STFacilitationP=%f mV\n", (double)aux);
+      }
+
+      if (strncmp(s, "STFacilitationTau=", 18) == 0) {
+        aux = atof(s + 18);
+        PopD[currentpop].SynP[PopD[currentpop].NTargetPops].tauF = aux;
+        report("  STFacilitationTau=%f mV\n", (double)aux);
+      }
+    } // currentpopflag
 
     if (strncmp(s, "EndReceptor", 11) == 0) {
       currentreceptorflag = 0;
       continue;
     }
 
-    if (strncmp(s, "Tau=", 4) == 0 && currentpopflag && currentreceptorflag) {
-      PopD[currentpop].Tau[currentreceptor] = atof(s + 4);
-      report("  Tau=%f ms\n", (double)PopD[currentpop].Tau[currentreceptor]);
-      continue;
-    }
-    if (strncmp(s, "RevPot=", 7) == 0 && currentpopflag &&
-        currentreceptorflag) {
-      PopD[currentpop].RevPots[currentreceptor] = atof(s + 7);
-      report("  Reversal potential=%f mV\n",
-             (double)PopD[currentpop].RevPots[currentreceptor]);
-      continue;
-    }
-    if (strncmp(s, "FreqExt=", 8) == 0 && currentpopflag &&
-        currentreceptorflag) {
-      PopD[currentpop].FreqExt[currentreceptor] = atof(s + 8);
-      report("  Ext frequency=%f Hz\n",
-             (double)PopD[currentpop].FreqExt[currentreceptor]);
-      continue;
-    }
-    if (strncmp(s, "FreqExtSD=", 10) == 0 && currentpopflag &&
-        currentreceptorflag) {
-      PopD[currentpop].FreqExtSD[currentreceptor] = atof(s + 10);
-      report("  Ext frequency SD=%f Hz\n",
-             (double)PopD[currentpop].FreqExtSD[currentreceptor]);
-      continue;
-    }
-    if (strncmp(s, "MeanExtEff=", 11) == 0 && currentpopflag &&
-        currentreceptorflag) {
-      PopD[currentpop].MeanExtEff[currentreceptor] = atof(s + 11);
-      report("  Ext efficacy=%f nS\n",
-             (double)PopD[currentpop].MeanExtEff[currentreceptor]);
-      continue;
-    }
-    if (strncmp(s, "ExtEffSD=", 9) == 0 && currentpopflag &&
-        currentreceptorflag) {
-      PopD[currentpop].ExtEffSD[currentreceptor] = atof(s + 9);
-      report("  Ext efficacy SD=%f nS\n",
-             (double)PopD[currentpop].ExtEffSD[currentreceptor]);
-      continue;
-    }
-    if (strncmp(s, "MeanExtCon=", 11) == 0 && currentpopflag &&
-        currentreceptorflag) {
-      PopD[currentpop].MeanExtCon[currentreceptor] = atof(s + 11);
-      report("  Ext connections=%f\n",
-             (double)PopD[currentpop].MeanExtCon[currentreceptor]);
-      continue;
-    }
-
     // target populations
-
-    if (strncmp(s, "TargetPopulation:", 17) == 0 && currentpopflag) {
-      s += 17;
-      while (*s == ' ') s++;
-      currenttarget = PopulationCode(s);
-      if (currenttarget == -1) {
-        printf("Unknown target population: line %d\n", line);
-        return -1;
-      }
-      PopD[currentpop].TargetPops[PopD[currentpop].NTargetPops] = currenttarget;
-
-      report("Synapses targeting population: %s (%d)\n ",
-             PopD[currenttarget].Label, currenttarget);
-
-      PopD[currentpop].SynP[PopD[currentpop].NTargetPops].pv = 0;
-      PopD[currentpop].SynP[PopD[currentpop].NTargetPops].tauD = 1000;
-      PopD[currentpop].SynP[PopD[currentpop].NTargetPops].Fp = 0;
-      PopD[currentpop].SynP[PopD[currentpop].NTargetPops].tauF = 5000;
-      PopD[currentpop].SynP[PopD[currentpop].NTargetPops].EfficacySD = 0;
-      continue;
-    }
 
     if (strncmp(s, "EndTargetPopulation", 20) == 0) {
       PopD[currentpop].NTargetPops++;
       continue;
     }
 
-    if (strncmp(s, "Connectivity=", 13) == 0 && currentpopflag) {
-      aux = atof(s + 13);
-      PopD[currentpop].SynP[PopD[currentpop].NTargetPops].Connectivity = aux;
-      report("  Connectivity=%f\n", (double)aux);
-    }
-    if (strncmp(s, "TargetReceptor=", 15) == 0 && currentpopflag) {
-      s += 15;
-      while (*s == ' ' || *s == '\t') s++;
-      auxi = ReceptorCode(s, currenttarget);
-      if (auxi == -1) {
-        printf("Unknown target receptor, line %d\n", line);
-        return -1;
-      }
-      PopD[currentpop].SynP[PopD[currentpop].NTargetPops].TargetReceptor = auxi;
-      report("  Target receptor code=%d\n", auxi);
-    }
-
-    if (strncmp(s, "MeanEff=", 8) == 0 && currentpopflag) {
-      aux = atof(s + 8);
-      PopD[currentpop].SynP[PopD[currentpop].NTargetPops].MeanEfficacy = aux;
-      report("  Mean efficacy=%f\n", (double)aux);
-    }
-    if (strncmp(s, "EffSD=", 6) == 0 && currentpopflag) {
-      aux = atof(s + 6);
-      PopD[currentpop].SynP[PopD[currentpop].NTargetPops].EfficacySD = aux;
-      report("  Efficacy SD=%f\n", (double)aux);
-    }
-
-    if (strncmp(s, "STDepressionP=", 14) == 0 && currentpopflag) {
-      aux = atof(s + 14);
-      PopD[currentpop].SynP[PopD[currentpop].NTargetPops].pv = aux;
-      report("  STDepressionP=%f mV\n", (double)aux);
-    }
-
-    if (strncmp(s, "STDepressionTau=", 16) == 0 && currentpopflag) {
-      aux = atof(s + 16);
-      PopD[currentpop].SynP[PopD[currentpop].NTargetPops].tauD = aux;
-      report("  STDepressionTau=%f mV\n", (double)aux);
-    }
-    if (strncmp(s, "STFacilitationP=", 16) == 0 && currentpopflag) {
-      aux = atof(s + 16);
-      PopD[currentpop].SynP[PopD[currentpop].NTargetPops].Fp = aux;
-      report("  STFacilitationP=%f mV\n", (double)aux);
-    }
-
-    if (strncmp(s, "STFacilitationTau=", 18) == 0 && currentpopflag) {
-      aux = atof(s + 18);
-      PopD[currentpop].SynP[PopD[currentpop].NTargetPops].tauF = aux;
-      report("  STFacilitationTau=%f mV\n", (double)aux);
-    }
   }  // end while
 
   fclose(devconf);
@@ -911,6 +911,7 @@ int ParseProtocol() {
   line = -1;
   NEvents = 0;
   NCutoffs = 0;
+  NStages = 0;
 
   while (fgets(buf, 1000, devprot) != NULL) {
     line++;
@@ -928,73 +929,81 @@ int ParseProtocol() {
     if (strncmp(s, "EventTime", 9) == 0) {
       eventflag = 1;
       s += 9;
-      Events[NEvents].ETime = atof(s);
-      if (Events[NEvents].ETime < 0.) {
+      Events[NStages][NEvents].ETime = atof(s);
+      if (Events[NStages][NEvents].ETime < 0.) {
         printf("ERROR: Invalid event time, line %d\n", line);
         return -1;
       }
 
-      report("Event %d: time %f ms\n", NEvents, Events[NEvents].ETime);
+      report("Event %d: time %f ms\n", NEvents, Events[NStages][NEvents].ETime);
       continue;
     }
 
     if (strncmp(s, "EndEvent", 8) == 0) {
-      if (Events[NEvents].Type == ENDOFTRIAL) {
-        // dynamic cutoff
-        Cutoffs[NCutoffs] = Events[NEvents];
-        NCutoffs++;
+      if (Events[NStages][NEvents].Type == ENDOFTRIAL) {
+        if (Events[NStages][NEvents].PopNumber >= 0) {
+          // dynamic cutoff
+          Cutoffs[NStages][NCutoffs] = Events[NStages][NEvents];
+          NCutoffs++;
+          NEvents++;
+        } else {
+          NStages++;
+          NEvents = 0;
+          NCutoffs = 0;
+        }
+      } else {
+        NEvents++;
       }
       eventflag = 0;
-      NEvents++;
       continue;
     }
 
     if (strncmp(s, "Type=", 5) == 0) {
       s += 5;
       while (*s == ' ' || *s == '\t') s++;
-      if (strncmp(s, "ResetExtFreq", 13) == 0) {
-        Events[NEvents].Type = RESETEXTFREQ;
+      if (strncmp(s, "ResetExtFreq", 12) == 0) {
+        Events[NStages][NEvents].Type = RESETEXTFREQ;
       }
       if (strncmp(s, "ChangeExtFreq", 13) == 0) {
-        Events[NEvents].Type = CHANGEEXTFREQ;
+        Events[NStages][NEvents].Type = CHANGEEXTFREQ;
       }
       if (strncmp(s, "ChangeExtFreqSD", 15) == 0) {
-        Events[NEvents].Type = CHANGEEXTFREQSD;
+        Events[NStages][NEvents].Type = CHANGEEXTFREQSD;
       }
       if (strncmp(s, "ChangeMeanEff", 13) == 0) {
-        Events[NEvents].Type = CHANGEMEANEFF;
+        Events[NStages][NEvents].Type = CHANGEMEANEFF;
       }
       if (strncmp(s, "EndTrial", 8) == 0) {
-        Events[NEvents].Type = ENDOFTRIAL;
-        Events[NEvents].PopNumber = -1;
+        Events[NStages][NEvents].Type = ENDOFTRIAL;
+        Events[NStages][NEvents].PopNumber = -1;
       }
       continue;
     }
 
     if (strncmp(s, "FreqExt=", 8) == 0) {
       s += 8;
-      Events[NEvents].FreqExt = atof(s);
-      report("  New external frequency: %f Hz\n", Events[NEvents].FreqExt);
+      Events[NStages][NEvents].FreqExt = atof(s);
+      report("  New external frequency: %f Hz\n", Events[NStages][NEvents].FreqExt);
       continue;
     }
     if (strncmp(s, "FreqExtSD=", 10) == 0) {
       s += 10;
-      Events[NEvents].FreqExtSD = atof(s);
-      report("  New external frequency SD: %f Hz\n", Events[NEvents].FreqExtSD);
+      Events[NStages][NEvents].FreqExtSD = atof(s);
+      report("  New external frequency SD: %f Hz\n", Events[NStages][NEvents].FreqExtSD);
       continue;
     }
 
     if (strncmp(s, "MeanEff=", 8) == 0) {
       s += 8;
-      Events[NEvents].MeanEff = atof(s);
-      report("  New Mean Eff: %f Hz\n", Events[NEvents].MeanEff);
+      Events[NStages][NEvents].MeanEff = atof(s);
+      report("  New Mean Eff: %f Hz\n", Events[NStages][NEvents].MeanEff);
       continue;
     }
 
     if (strncmp(s, "Label=", 6) == 0) {
       s += 6;
-      strcpy(Events[NEvents].Label, s);
-      report("   Label: [%s]\n", Events[NEvents].Label);
+      strcpy(Events[NStages][NEvents].Label, s);
+      report("   Label: [%s]\n", Events[NStages][NEvents].Label);
       continue;
     }
 
@@ -1006,7 +1015,7 @@ int ParseProtocol() {
         printf("ERROR: Unknown population: line %d\n", line);
         return -1;
       }
-      Events[NEvents].PopNumber = currentpop;
+      Events[NStages][NEvents].PopNumber = currentpop;
       report("  Population code: %d\n", currentpop);
       continue;
     }
@@ -1019,7 +1028,7 @@ int ParseProtocol() {
         printf("ERROR: Unknown population: line %d\n", line);
         return -1;
       }
-      Events[NEvents].TargetPopNumber = currentpop;
+      Events[NStages][NEvents].TargetPopNumber = currentpop;
       report("  TargetPopulation code: %d\n", currentpop);
       continue;
     }
@@ -1032,13 +1041,14 @@ int ParseProtocol() {
         printf("ERROR: Unknown receptor, line %d\n", line);
         return -1;
       }
-      Events[NEvents].ReceptorNumber = auxi;
+      Events[NStages][NEvents].ReceptorNumber = auxi;
       report("  Receptor code:%d\n", auxi);
     }
 
   }  // end while
 
   // sort events!... (for now I rely on the fact that events are sorted)
+  // update: code now relies on fact that events are NOT sorted here
 
   return 1;
 }
@@ -1134,6 +1144,28 @@ int GenerateNetwork() {
       Pop[p].Cell[i].V_T = PopD[p].V_T;
       Pop[p].Cell[i].g_T = PopD[p].g_T;
       Pop[p].Cell[i].h = 1.0;
+
+      // single neuron parameters -- dopaminergic learning
+      Pop[p].Cell[i].dpmn_type = PopD[p].dpmn_type;
+      Pop[p].Cell[i].dpmn_alpha = PopD[p].dpmn_alpha;
+      Pop[p].Cell[i].dpmn_dPRE = PopD[p].dpmn_dPRE;
+      Pop[p].Cell[i].dpmn_dPOST = PopD[p].dpmn_dPOST;
+      Pop[p].Cell[i].dpmn_tauE = PopD[p].dpmn_tauE;
+      Pop[p].Cell[i].dpmn_tauPRE = PopD[p].dpmn_tauPRE;
+      Pop[p].Cell[i].dpmn_c = PopD[p].dpmn_c;
+      Pop[p].Cell[i].dpmn_wmax = PopD[p].dpmn_wmax;
+      Pop[p].Cell[i].dpmn_taug = PopD[p].dpmn_taug;
+      Pop[p].Cell[i].dpmn_Q1 = PopD[p].dpmn_Q1;
+      Pop[p].Cell[i].dpmn_Q2 = PopD[p].dpmn_Q2;
+      Pop[p].Cell[i].dpmn_APRE = PopD[p].dpmn_APRE;
+      Pop[p].Cell[i].dpmn_APOST = PopD[p].dpmn_APOST;
+      Pop[p].Cell[i].dpmn_E = PopD[p].dpmn_E;
+      Pop[p].Cell[i].dpmn_w = PopD[p].dpmn_w;
+      Pop[p].Cell[i].dpmn_XPRE = PopD[p].dpmn_XPRE;
+      Pop[p].Cell[i].dpmn_XPOST = PopD[p].dpmn_XPOST;
+      Pop[p].Cell[i].dpmn_DA = PopD[p].dpmn_DA;
+      Pop[p].Cell[i].dpmn_tauDOP = PopD[p].dpmn_tauDOP;
+
       // receptors
       Pop[p].Cell[i].Nreceptors = PopD[p].Nreceptors;
       for (r = 0; r < Pop[p].Cell[i].Nreceptors; r++) {
@@ -1368,6 +1400,14 @@ int SimulateOneTimeStep() {
     flag = 1;
   }
 
+  // dopaminergic learning, reset variables for this tick
+  for (p = 0; p < Npop; p++) {
+    for (i = 0; i < Pop[p].Ncells; i++) {
+      Pop[p].Cell[i].dpmn_XPRE = 0;
+      Pop[p].Cell[i].dpmn_XPOST = 0;
+    }
+  }
+
   // Compute the decay of the total conductances and add external input
   // ------------------------------------------------------------------
   for (p = 0; p < Npop; p++) {
@@ -1487,6 +1527,10 @@ int SimulateOneTimeStep() {
         Pop[p].Cell[sourceneuron].Axonals[j].D -=
             Pop[p].Cell[sourceneuron].Axonals[j].pv * F *
             Pop[p].Cell[sourceneuron].Axonals[j].D;
+
+        // dopaminergic learning
+        Pop[tp].Cell[tn].dpmn_XPRE = 1; // presynaptic from perspective of target neuron
+
       }  // for j
          //                if(sourceneuron==20) printf("
          //                %f\n",Pop[p].Cell[sourceneuron].D);
@@ -1521,7 +1565,7 @@ int SimulateOneTimeStep() {
         continue;
       }
 
-      // refractory period
+      // skip this cell if in refractory period
 
       if (Pop[p].Cell[i].RefrState) {
         Pop[p].Cell[i].RefrState--;
@@ -1635,6 +1679,38 @@ int SimulateOneTimeStep() {
 
         // [Ca] increases;
         Pop[p].Cell[i].Ca += Pop[p].Cell[i].alpha_ca;
+
+        // dopaminergic learning
+        Pop[p].Cell[i].dpmn_XPOST = 1; // this is the post-synaptic cell spiking
+      }
+    }
+  }
+
+  // dopaminergic learning
+  for (p = 0; p < Npop; p++) {
+    for (i = 0; i < Pop[p].Ncells; i++) {
+      Neuron nrn = Pop[p].Cell[i];
+      if (nrn.dpmn_type) {
+        // these are simply the 1st order approximations, RK45 not used
+        // step 2 exponentially decrease DA
+        nrn.dpmn_DA -= dt * nrn.dpmn_DA / nrn.dpmn_tauDOP;
+        // step 3
+        nrn.dpmn_APRE += dt * (nrn.dpmn_dPRE * nrn.dpmn_XPRE - nrn.dpmn_APRE)
+                         / nrn.dpmn_tauPRE;
+        nrn.dpmn_APOST += dt * (nrn.dpmn_dPOST * nrn.dpmn_XPOST - nrn.dpmn_APOST)
+                          / nrn.dpmn_tauPOST;
+        nrn.dpmn_E += dt * (nrn.dpmn_XPOST * nrn.dpmn_APRE
+                            - nrn.dpmn_XPRE * nrn.dpmn_APOST - nrn.dpmn_E)
+                      / nrn.dpmn_tauE;
+        if (nrn.dpmn_type == 1) {
+          nrn.dpmn_w += dt * nrn.dpmn_alpha * nrn.dpmn_E * nrn.dpmn_DA
+                        * (nrn.dpmn_wmax - nrn.dpmn_w);
+        }
+        if (nrn.dpmn_type == 2) {
+          nrn.dpmn_w += dt * nrn.dpmn_alpha * nrn.dpmn_E * nrn.dpmn_DA
+                        * (nrn.dpmn_wmax - nrn.dpmn_w) / (nrn.dpmn_c + nrn.dpmn_DA);
+        }
+        // step 4 TODO
       }
     }
   }
@@ -1644,9 +1720,13 @@ int SimulateOneTimeStep() {
 
   for (p = 0; p < Npop; p++) {
     Pop[p].CTableofSpikes++;
-    if (Pop[p].CTableofSpikes > MAXDELAYINDT - 1) Pop[p].CTableofSpikes = 0;
+    if (Pop[p].CTableofSpikes > MAXDELAYINDT - 1) {
+      Pop[p].CTableofSpikes = 0;
+    }
     Pop[p].DTableofSpikes++;
-    if (Pop[p].DTableofSpikes > MAXDELAYINDT - 1) Pop[p].DTableofSpikes = 0;
+    if (Pop[p].DTableofSpikes > MAXDELAYINDT - 1) {
+      Pop[p].DTableofSpikes = 0;
+    }
   }
 }
 
@@ -1815,7 +1895,7 @@ int SaveSpikes(int eventflag) {
   int res = 1;
   if ((counter % STEPSFORSAVINGFREQS) == 0) {
     for (int co = 0; co < CCutoff; co++) {
-      if (meanfreqs[Cutoffs[co].PopNumber] > Cutoffs[co].FreqExt) {
+      if (meanfreqs[Cutoffs[CStage][co].PopNumber] > Cutoffs[CStage][co].FreqExt) {
         res = 0;
       }
     }
@@ -1874,19 +1954,19 @@ int HandleEvent(void) {
   int i, p, r, q, j;
   float efficacy, MeanEff;
 
-  if (Events[CEvent].Type == ENDOFTRIAL) {
-    if (Events[CEvent].PopNumber < 0) {
+  if (Events[CStage][CEvent].Type == ENDOFTRIAL) {
+    if (Events[CStage][CEvent].PopNumber < 0) {
       return 0;
     }
     // dynamic cutoff
     CCutoff++;
   }
 
-  if (Events[CEvent].Type == RESETEXTFREQ) {
-    p = Events[CEvent].PopNumber;
-    r = Events[CEvent].ReceptorNumber;
-    PopD[p].FreqExt[r] = Events[CEvent].FreqExt;
-    // printf("%7.1f ------------------ Event: %s ----------------\n",Time,Events[CEvent].Label);
+  if (Events[CStage][CEvent].Type == RESETEXTFREQ) {
+    p = Events[CStage][CEvent].PopNumber;
+    r = Events[CStage][CEvent].ReceptorNumber;
+    PopD[p].FreqExt[r] = Events[CStage][CEvent].FreqExt;
+    // printf("%7.1f ------------------ Event: %s ----------------\n",Time,Events[CStage][CEvent].Label);
 
     efficacy = PopD[p].MeanExtEff[r];
     PopD[p].MeanExtMuS[r] = PopD[p].FreqExt[r] * .001 * efficacy *
@@ -1906,11 +1986,11 @@ int HandleEvent(void) {
                efficacy * PopD[p].MeanExtCon[r]);
     }
   }
-  if (Events[CEvent].Type == CHANGEEXTFREQ) {
-    p = Events[CEvent].PopNumber;
-    r = Events[CEvent].ReceptorNumber;
-    PopD[p].FreqExt[r] = Events[CEvent].FreqExt;
-    // printf("%7.1f ------------------ Event: %s ----------------\n",Time,Events[CEvent].Label);
+  if (Events[CStage][CEvent].Type == CHANGEEXTFREQ) {
+    p = Events[CStage][CEvent].PopNumber;
+    r = Events[CStage][CEvent].ReceptorNumber;
+    PopD[p].FreqExt[r] = Events[CStage][CEvent].FreqExt;
+    // printf("%7.1f ------------------ Event: %s ----------------\n",Time,Events[CStage][CEvent].Label);
 
     efficacy = PopD[p].MeanExtEff[r];
     PopD[p].MeanExtMuS[r] = PopD[p].FreqExt[r] * .001 * efficacy *
@@ -1931,19 +2011,19 @@ int HandleEvent(void) {
     }
   }
 
-  if (Events[CEvent].Type == CHANGEEXTFREQSD) {
-    p = Events[CEvent].PopNumber;
-    r = Events[CEvent].ReceptorNumber;
-    PopD[p].FreqExtSD[r] = Events[CEvent].FreqExtSD;
-    // printf("%7.1f ------------------ Event: %s ----------------\n",Time,Events[CEvent].Label);
+  if (Events[CStage][CEvent].Type == CHANGEEXTFREQSD) {
+    p = Events[CStage][CEvent].PopNumber;
+    r = Events[CStage][CEvent].ReceptorNumber;
+    PopD[p].FreqExtSD[r] = Events[CStage][CEvent].FreqExtSD;
+    // printf("%7.1f ------------------ Event: %s ----------------\n",Time,Events[CStage][CEvent].Label);
   }
 
-  if (Events[CEvent].Type == CHANGEMEANEFF) {
-    p = Events[CEvent].PopNumber;
-    q = Events[CEvent].TargetPopNumber;
-    r = Events[CEvent].ReceptorNumber;
-    // printf("%7.1f ------------------ Event: %s ----------------\n",Time,Events[CEvent].Label);
-    MeanEff = Events[CEvent].MeanEff;
+  if (Events[CStage][CEvent].Type == CHANGEMEANEFF) {
+    p = Events[CStage][CEvent].PopNumber;
+    q = Events[CStage][CEvent].TargetPopNumber;
+    r = Events[CStage][CEvent].ReceptorNumber;
+    // printf("%7.1f ------------------ Event: %s ----------------\n",Time,Events[CStage][CEvent].Label);
+    MeanEff = Events[CStage][CEvent].MeanEff;
     for (i = 0; i < PopD[p].NTargetPops; i++)
       if (PopD[p].TargetPops[i] == q) {
         if (PopD[p].SynP[i].TargetReceptor == r)
@@ -1958,7 +2038,7 @@ int HandleEvent(void) {
   }
 
   CEvent++;
-  NextEventTime = Events[CEvent].ETime;
+  NextEventTime = Events[CStage][CEvent].ETime + CStageStart;
 
   return 1;
 }
@@ -2047,7 +2127,9 @@ int main(int argc, char *argv[])
     CEvent=0;
     // dynamic cutoff
     CCutoff=0;
-    NextEventTime=Events[CEvent].ETime;
+    CStageStart = 0;
+    CStage = 0;
+    NextEventTime=Events[CStage][CEvent].ETime + CStageStart;
     runflag=1;
 
     //GenMatLabMultiTrial();
@@ -2065,10 +2147,18 @@ int main(int argc, char *argv[])
           runflag = HandleEvent();
           if (runflag == 0) break;
         }
-      }
-      else runflag = SaveSpikes(0);
+      } else runflag = SaveSpikes(0);
 
       SaveTraces();
+
+      if (runflag == 0 && CStage < NStages - 1) {
+        CStage++;
+        CStageStart = Time;
+        CEvent=0;
+        CCutoff=0;
+        NextEventTime=Events[CStage][CEvent].ETime + CStageStart;
+        runflag = 1;
+      }
     }
     report("\rEnd of the trial\n");
     //}
