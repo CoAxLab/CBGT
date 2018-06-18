@@ -107,7 +107,7 @@ def makeHandle(name, targ, path, receptor=None, con=0,
             'conmatrix': conmatrix}
 
 
-def makeHandleEvent(label, time, hname, hpath, freq, etype='ChangeExtFreq'):
+def makeHandleEvent(label, time, hname='', hpath='', freq='', etype='ChangeExtFreq'):
     return {'label': label,
             'time': time,
             'hname': hname,
@@ -274,21 +274,29 @@ def constructHandleCopies(dims, handletypes, poppaths, popcopylist):
 
 
 def constructEvents(handleevent, handles, eventlist):
-    for handle in handles:
-        if handle['name'] == handleevent['hname']:
-            valid = True
-            for spec, val in zip(handleevent['hpath'], handle['pathvals']):
-                if spec != -1 and spec != val:
-                    valid = False
-            if valid:
-                for tract in handle['targets']:
-                    if handleevent['etype'] == 'ChangeExtFreq':
-                        event = makeEvent(handleevent['time'], 'ChangeExtFreq', handleevent['label'],
-                                          tract['target'], handleevent['freq'], tract['data']['TargetReceptor'])
-                    if handleevent['etype'] == 'EndTrial':
-                        event = makeEvent(handleevent['time'], 'EndTrial', handleevent['label'],
-                                          tract['target'], handleevent['freq'])
-                    eventlist.append(event)
+    if handleevent['hname'] == '':
+        if handleevent['etype'] == 'DivideStage':
+            event = makeEvent(handleevent['time'], 'DivideStage')
+            eventlist.append(event)
+        if handleevent['etype'] == 'EndTrial':
+            event = makeEvent(handleevent['time'], 'EndTrial')
+            eventlist.append(event)
+    else:
+        for handle in handles:
+            if handle['name'] == handleevent['hname']:
+                valid = True
+                for spec, val in zip(handleevent['hpath'], handle['pathvals']):
+                    if spec != -1 and spec != val:
+                        valid = False
+                if valid:
+                    for tract in handle['targets']:
+                        if handleevent['etype'] == 'ChangeExtFreq':
+                            event = makeEvent(handleevent['time'], 'ChangeExtFreq', handleevent['label'],
+                                              tract['target'], handleevent['freq'], tract['data']['TargetReceptor'])
+                        if handleevent['etype'] == 'EndTrial':
+                            event = makeEvent(handleevent['time'], 'EndTrial', handleevent['label'],
+                                              tract['target'], handleevent['freq'])
+                        eventlist.append(event)
 
 
 def printNetData(poppaths, popcopylist, handles):
@@ -525,12 +533,13 @@ def describeBG(**kwargs):
     camP(c, 'Th', 'D2STR', 'AMPA', ['syn'], 0.45, config['ThSTR'])
     camP(c, 'Th', 'FSI', 'AMPA', ['all'], 0.25, config['ThSTR'])
     camP(c, 'Th', 'LIP', 'NMDA', ['all'], 0.25, config['ThCx'], name='thcx')
-    camP(c, 'Th', 'LIPI', 'NMDA', ['all'], 0.25, config['ThCx'], name='thcxi')
+    
     action_channel = makeChannel('choices', [GPi, STNE, GPeP, D1STR, D2STR, LIP, Th])
 
     ineuronPops = [FSI]
 
     if config['rampingCTX']:
+        camP(c, 'Th', 'LIPI', 'NMDA', ['all'], 0.25, config['ThCx'], name='thcxi')
         camP(c, 'LIP', 'LIP', ['AMPA', 'NMDA'], ['all'], .13, [0.0127, 0.15])
         camP(c, 'LIP', 'LIPI', ['AMPA', 'NMDA'], ['all'], .0725, [0.013, 0.125])
 
@@ -842,23 +851,22 @@ def mcInfo(**kwargs):
     hts.append(makeHandle('out', 'Th', ['choices']))
 
     hes = []
-    # hes.append(makeHandleEvent('reset', 0, 'sensory', [], config['BaseStim']))
-    hes.append(makeHandleEvent('reset', config['Start'], 'sensory', [], config['BaseStim']))
-    # hes.append(makeHandleEvent('reset', 0, 'motor', [], config['BaseStim']))
-    hes.append(makeHandleEvent('wrong stimulus', config['Start'], 'sensory', [], config['WrongStim']))
-    hes.append(makeHandleEvent('right stimulus', config['Start'], 'sensory', [0], config['RightStim']))
-    hes.append(makeHandleEvent('hyperdirect', config['Start'], 'threshold', [], config['STNExtFreq']+.75))
-    hes.append(makeHandleEvent('hyperdirect', config['Start'], 'threshold', [0], config['STNExtFreq']+.75))
-    hes.append(makeHandleEvent('dynamic cutoff', config['Start'], 'out', [], config['Dynamic'], 'EndTrial'))
-
     houts = []
-    houts.append(makeHandleEvent('decision made',
-                                 config['Start'], 'out', [], config['Dynamic']))
+    for i in range(0,3):
+        hes.append(makeHandleEvent('reset', 0, 'sensory', [], config['BaseStim']))
+        hes.append(makeHandleEvent('wrong stimulus', config['Start'], 'sensory', [], config['WrongStim']))
+        hes.append(makeHandleEvent('right stimulus', config['Start'], 'sensory', [0], config['RightStim']))
+        hes.append(makeHandleEvent('hyperdirect', config['Start'], 'threshold', [], config['STNExtFreq']+.75))
+        hes.append(makeHandleEvent('hyperdirect', config['Start'], 'threshold', [0], config['STNExtFreq']+.75))
+        hes.append(makeHandleEvent('dynamic cutoff', config['Start'], 'out', [], config['Dynamic'], 'EndTrial'))
+        hes.append(makeHandleEvent('time limit', 600, etype='EndTrial'))
+        houts.append(makeHandleEvent('decision made', config['Start'], 'out', [], config['Dynamic'], 'EndTrial'))
+        houts.append(makeHandleEvent('time limit', 600, etype='EndTrial'))
 
     # timelimit = 1800
     timelimit = 1200
 
-    return (dims, hts, hes, houts, timelimit)
+    return (dims, hts, hes, houts)
 
 
 def ssInfo(**kwargs):
@@ -903,7 +911,7 @@ def ssInfo(**kwargs):
                                  config['Start'], 'out', [], config['Dynamic']))
 
     timelimit = 1500
-    return (dims, hts, hes, houts, timelimit)
+    return (dims, hts, hes, houts)
 
 
 def modifyNetwork(popcopylist, connections, **kwargs):
@@ -932,9 +940,9 @@ def configureExperiment(**kwargs):
 
     # get description relevant to this experiment and merge
     if kwargs['experiment'] == 'mc':
-        dims, hts, handleeventlist, outputevents, timelimit = mcInfo(**kwargs)
+        dims, hts, handleeventlist, outputevents = mcInfo(**kwargs)
     if kwargs['experiment'] == 'ss':
-        dims, hts, handleeventlist, outputevents, timelimit = ssInfo(**kwargs)
+        dims, hts, handleeventlist, outputevents = ssInfo(**kwargs)
     for ht in hts:
         handletypes.append(ht)
 
@@ -953,7 +961,6 @@ def configureExperiment(**kwargs):
     eventlist = []
     for he in handleeventlist:
         constructEvents(he, handles, eventlist)
-    eventlist.append(makeEvent(timelimit, 'EndTrial'))
 
     # write files
     # printNetData(poppaths, popcopylist, handles)
@@ -1039,8 +1046,7 @@ def findOutputs(trialdata, df=None):
                             curtime = df.at[i, 'Time (ms)']
                             if curtime < output['start']:
                                 continue
-                            if df.at[i, tract['target']
-                                     ] >= output['threshold']:
+                            if df.at[i, tract['target']] >= output['threshold']:
                                 if output['time'] is None or curtime < output['time']:
                                     output['time'] = curtime
                                     output['delay'] = curtime - output['start']
@@ -1049,7 +1055,73 @@ def findOutputs(trialdata, df=None):
     trialdata['outputs'] = outputs
     return outputs
 
-
+def findOutputs2(trialdata, df=None):
+    if df is None:
+        df = trialdata['popfreqs']
+    outputs = {}
+    outevents = trialdata['outputevents']
+    for handleevent in outevents:
+        outputs[handleevent['label']] = []
+    curstage = 0
+    stagestart = 0
+    firstrelevantevent = 0
+    lastrelevantevent = 1
+    for e in range(firstrelevantevent, len(outevents)):
+        handleevent = outevents[e]
+        if len(outputs[handleevent['label']]) <= curstage:
+            output = {'time': None,
+                      'start': handleevent['time'],
+                      'delay': None,
+                      'pathvals': None,
+                      'threshold': handleevent['freq']}
+            outputs[handleevent['label']].append(output)
+        if e == lastrelevantevent and not (handleevent['etype'] == 'EndTrial' and handleevent['hname'] == ''):
+            lastrelevantevent += 1;
+    for i in range(0, df.shape[0]):
+        curtime = df.at[i, 'Time (ms)']
+        needsmorestaging = 0
+        for e in range(firstrelevantevent, lastrelevantevent):
+            handleevent = outevents[e]
+            output = outputs[handleevent['label']][curstage]
+            if curtime < output['start'] + stagestart:
+                continue
+            if handleevent['etype'] == 'EndTrial' and handleevent['hname'] == '':
+                if curtime >= output['start'] + stagestart:
+                    needsmorestaging = 1
+                    continue
+            for handle in trialdata['handles']:
+                if handle['name'] == handleevent['hname']:
+                    valid = True
+                    for spec, val in zip(handleevent['hpath'], handle['pathvals']):
+                        if spec != -1 and spec != val:
+                            valid = False
+                    if valid:
+                        for tract in handle['targets']:
+                            if df.at[i, tract['target']] >= output['threshold']:
+                                if output['time'] is None:
+                                    output['time'] = curtime
+                                    output['delay'] = curtime - stagestart - output['start']
+                                    output['pathvals'] = handle['pathvals']
+                                    if handleevent['etype'] == 'EndTrial':
+                                        needsmorestaging = 1
+        if needsmorestaging == 1:
+            curstage += 1
+            stagestart = curtime
+            firstrelevantevent = lastrelevantevent
+            lastrelevantevent += 1
+            for e in range(firstrelevantevent, len(outevents)):
+                handleevent = outevents[e]
+                if len(outputs[handleevent['label']]) <= curstage:
+                    output = {'time': None,
+                              'start': handleevent['time'],
+                              'delay': None,
+                              'pathvals': None,
+                              'threshold': handleevent['freq']}
+                    outputs[handleevent['label']].append(output)
+                if e == lastrelevantevent and not (handleevent['etype'] == 'EndTrial' and handleevent['hname'] == ''):
+                    lastrelevantevent += 1;
+    trialdata['outputs'] = outputs
+    return outputs
 
 def setDirectory(prefix='autotest'):
     global directoryprefix
