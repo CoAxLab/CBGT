@@ -119,7 +119,7 @@ float gasdev()
 #define AMPA 0
 #define GABA 1
 #define NMDA 2
-#define DPMN 3
+// #define DPMN 3
 
 // =============================================================
 // Structures for the simulation
@@ -239,8 +239,13 @@ typedef struct {
   float dpmn_w;
   float dpmn_XPRE;
   float dpmn_XPOST;
-  float dpmn_DA;
+  float dpmn_DAp;
   float dpmn_tauDOP;
+  float dpmn_DAt;
+  float dpmn_a;
+  float dpmn_b;
+  float dpmn_m;
+  float dpmn_taum;
 
 } Neuron;
 
@@ -369,8 +374,13 @@ typedef struct {
   float dpmn_w;
   float dpmn_XPRE;
   float dpmn_XPOST;
-  float dpmn_DA;
+  float dpmn_DAp;
   float dpmn_tauDOP;
+  float dpmn_DAt;
+  float dpmn_a;
+  float dpmn_b;
+  float dpmn_m;
+  float dpmn_taum;
 
 } PopDescr;
 
@@ -379,8 +389,8 @@ PopDescr PopD[MAXP];
 // ===============================================================
 // Protocol descriptors
 
-#define MAXSTAGES 20 // for multistage simulations
-#define MAXEVENTS 200
+#define MAXSTAGES 1024 // for multistage simulations
+#define MAXEVENTS 32 // max events per stage
 
 #define ENDOFTRIAL 1
 #define CHANGEEXTFREQ 2
@@ -398,6 +408,8 @@ typedef struct {
   float FreqExtSD;
   float MeanEff;
   char Label[100];
+  int RewardFlag;
+  float RewardVal;
 } EventDescr;
 
 int NEvents=0;
@@ -716,10 +728,15 @@ int DescribeNetwork() {
       popparams[36] = (PairFloat){"dpmn_w", &PopD[currentpop].dpmn_w};
       popparams[37] = (PairFloat){"dpmn_XPRE", &PopD[currentpop].dpmn_XPRE};
       popparams[38] = (PairFloat){"dpmn_XPOST", &PopD[currentpop].dpmn_XPOST};
-      popparams[39] = (PairFloat){"dpmn_DA", &PopD[currentpop].dpmn_DA};
+      popparams[39] = (PairFloat){"dpmn_DAp", &PopD[currentpop].dpmn_DAp};
       popparams[40] = (PairFloat){"dpmn_tauDOP", &PopD[currentpop].dpmn_tauDOP};
+      popparams[41] = (PairFloat){"dpmn_DAt", &PopD[currentpop].dpmn_DAt};
+      popparams[42] = (PairFloat){"dpmn_a", &PopD[currentpop].dpmn_a};
+      popparams[43] = (PairFloat){"dpmn_b", &PopD[currentpop].dpmn_b};
+      popparams[44] = (PairFloat){"dpmn_m", &PopD[currentpop].dpmn_m};
+      popparams[45] = (PairFloat){"dpmn_taum", &PopD[currentpop].dpmn_taum};
 
-      for (paramnum = 0; paramnum < 41; paramnum++) {
+      for (paramnum = 0; paramnum < 46; paramnum++) {
         PairFloat param;
         param = popparams[paramnum];
         int length;
@@ -1045,6 +1062,19 @@ int ParseProtocol() {
       report("  Receptor code:%d\n", auxi);
     }
 
+    if (strncmp(s, "RewardFlag=", 11) == 0) {
+      s += 8;
+      Events[NStages][NEvents].RewardFlag = atoi(s);
+      report("  Reward Flag: %d\n", Events[NStages][NEvents].RewardFlag);
+      continue;
+    }
+    if (strncmp(s, "RewardVal=", 10) == 0) {
+      s += 8;
+      Events[NStages][NEvents].RewardVal = atof(s);
+      report("  Reward Value: %f\n", Events[NStages][NEvents].RewardVal);
+      continue;
+    }
+
   }  // end while
 
   // sort events!... (for now I rely on the fact that events are sorted)
@@ -1163,8 +1193,13 @@ int GenerateNetwork() {
       Pop[p].Cell[i].dpmn_w = PopD[p].dpmn_w;
       Pop[p].Cell[i].dpmn_XPRE = PopD[p].dpmn_XPRE;
       Pop[p].Cell[i].dpmn_XPOST = PopD[p].dpmn_XPOST;
-      Pop[p].Cell[i].dpmn_DA = PopD[p].dpmn_DA;
+      Pop[p].Cell[i].dpmn_DAp = PopD[p].dpmn_DAp;
       Pop[p].Cell[i].dpmn_tauDOP = PopD[p].dpmn_tauDOP;
+      Pop[p].Cell[i].dpmn_DAt = PopD[p].dpmn_DAt;
+      Pop[p].Cell[i].dpmn_a = PopD[p].dpmn_a;
+      Pop[p].Cell[i].dpmn_b = PopD[p].dpmn_b;
+      Pop[p].Cell[i].dpmn_m = PopD[p].dpmn_m;
+      Pop[p].Cell[i].dpmn_taum = PopD[p].dpmn_taum;
 
       // receptors
       Pop[p].Cell[i].Nreceptors = PopD[p].Nreceptors;
@@ -1375,6 +1410,8 @@ int SimulateOneTimeStep() {
   int p, i, j, r, sourceneuron;
   int tn, tp, tr;
   float s, saturationfactor;
+  float dpmn_eff; // dopaminergic learning: synaptic efficacy adjusted by
+                  // dopamine weight (dpmn_w) if any
   float Vaux;  // auxiliary V: during the emission of the spike V is set
                // artificially to 0. This is bad for the reversal potential
   float D, F;
@@ -1400,11 +1437,13 @@ int SimulateOneTimeStep() {
     flag = 1;
   }
 
-  // dopaminergic learning, reset variables for this tick
+  // dopaminergic learning, reset Xpre/Xpost for this tick
   for (p = 0; p < Npop; p++) {
-    for (i = 0; i < Pop[p].Ncells; i++) {
-      Pop[p].Cell[i].dpmn_XPRE = 0;
-      Pop[p].Cell[i].dpmn_XPOST = 0;
+    if (PopD[p].dpmn_type) {
+      for (i = 0; i < Pop[p].Ncells; i++) {
+        Pop[p].Cell[i].dpmn_XPRE = 0;
+        Pop[p].Cell[i].dpmn_XPOST = 0;
+      }
     }
   }
 
@@ -1494,12 +1533,14 @@ int SimulateOneTimeStep() {
         tn = Pop[p].Cell[sourceneuron].Axonals[j].TargetNeuron;
         tp = Pop[p].Cell[sourceneuron].Axonals[j].TargetPop;
         tr = Pop[p].Cell[sourceneuron].Axonals[j].TargetReceptor;
-
+        // dopaminergic learning equation 1
+        dpmn_eff = Pop[p].Cell[sourceneuron].Axonals[j].Efficacy;
+        if (Pop[tp].Cell[tn].dpmn_type) {
+          dpmn_eff *= Pop[tp].Cell[tn].dpmn_w;
+        }
         if (Pop[p].Cell[sourceneuron].Axonals[j].LastConductance <
             0.) {  // NO NMDA (no saturation)
-          Pop[tp].Cell[tn].LS[tr] +=
-              D * F *
-              Pop[p].Cell[sourceneuron].Axonals[j].Efficacy;  // no saturation
+          Pop[tp].Cell[tn].LS[tr] += D * F * dpmn_eff;  // no saturation
         } else {
 // Now it should be correct. ALPHA factor to be determined (jump for every
 // spike): now it is the maximum of a single spike
@@ -1511,8 +1552,7 @@ int SimulateOneTimeStep() {
               exp(-(Time - Pop[p].Cell[sourceneuron].PTimeLastSpike) /
                   Pop[tp].Cell[tn].Tau[tr]);
 
-          Pop[tp].Cell[tn].LS[tr] +=
-              D * F * Pop[p].Cell[sourceneuron].Axonals[j].Efficacy *
+          Pop[tp].Cell[tn].LS[tr] += D * F * dpmn_eff *
               (1. - Pop[p].Cell[sourceneuron].Axonals[j].LastConductance) *
               ALPHA;
 
@@ -1688,29 +1728,34 @@ int SimulateOneTimeStep() {
 
   // dopaminergic learning
   for (p = 0; p < Npop; p++) {
-    for (i = 0; i < Pop[p].Ncells; i++) {
-      Neuron nrn = Pop[p].Cell[i];
-      if (nrn.dpmn_type) {
-        // these are simply the 1st order approximations, RK45 not used
-        // step 2 exponentially decrease DA
-        nrn.dpmn_DA -= dt * nrn.dpmn_DA / nrn.dpmn_tauDOP;
-        // step 3
-        nrn.dpmn_APRE += dt * (nrn.dpmn_dPRE * nrn.dpmn_XPRE - nrn.dpmn_APRE)
-                         / nrn.dpmn_tauPRE;
-        nrn.dpmn_APOST += dt * (nrn.dpmn_dPOST * nrn.dpmn_XPOST - nrn.dpmn_APOST)
-                          / nrn.dpmn_tauPOST;
-        nrn.dpmn_E += dt * (nrn.dpmn_XPOST * nrn.dpmn_APRE
-                            - nrn.dpmn_XPRE * nrn.dpmn_APOST - nrn.dpmn_E)
-                      / nrn.dpmn_tauE;
-        if (nrn.dpmn_type == 1) {
-          nrn.dpmn_w += dt * nrn.dpmn_alpha * nrn.dpmn_E * nrn.dpmn_DA
+    if (PopD[p].dpmn_type) {
+      for (i = 0; i < Pop[p].Ncells; i++) {
+        Neuron nrn;
+        float fDA;
+        float DA;
+        nrn = Pop[p].Cell[i];
+        if (nrn.dpmn_type) {
+          // these are simply the 1st order approximations, RK45 not used
+          // equation 5 term 2
+          nrn.dpmn_DAp -= dt * nrn.dpmn_DAp / nrn.dpmn_tauDOP;
+          // equations 2
+          nrn.dpmn_APRE += dt * (nrn.dpmn_dPRE * nrn.dpmn_XPRE - nrn.dpmn_APRE)
+                           / nrn.dpmn_tauPRE;
+          nrn.dpmn_APOST += dt * (nrn.dpmn_dPOST * nrn.dpmn_XPOST - nrn.dpmn_APOST)
+                            / nrn.dpmn_tauPOST;
+          // equation 3
+          nrn.dpmn_E += dt * (nrn.dpmn_XPOST * nrn.dpmn_APRE
+                              - nrn.dpmn_XPRE * nrn.dpmn_APOST - nrn.dpmn_E)
+                        / nrn.dpmn_tauE;
+          // calculate DA (total dopamine)
+          DA = nrn.dpmn_m * (nrn.dpmn_DAp + nrn.dpmn_DAt);
+          nrn.dpmn_m -= dt * nrn.dpmn_m / nrn.dpmn_taum;
+          // equation 4
+          fDA = nrn.dpmn_a * pow(DA - nrn.dpmn_c, 3)
+                / (nrn.dpmn_b + pow(DA - nrn.dpmn_c, 3));
+          nrn.dpmn_w += dt * nrn.dpmn_alpha * nrn.dpmn_E * fDA
                         * (nrn.dpmn_wmax - nrn.dpmn_w);
         }
-        if (nrn.dpmn_type == 2) {
-          nrn.dpmn_w += dt * nrn.dpmn_alpha * nrn.dpmn_E * nrn.dpmn_DA
-                        * (nrn.dpmn_wmax - nrn.dpmn_w) / (nrn.dpmn_c + nrn.dpmn_DA);
-        }
-        // step 4 TODO
       }
     }
   }
