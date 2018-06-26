@@ -2008,11 +2008,53 @@ void SaveWeights() {
   if ((counter % STEPSFORSAVINGFREQS) == 0) {
     fprintf(devfreqs, "%f\t", Time);
     for (p = 0; p < Npop; p++) {
+      float avg;
+      avg = 0;
+      for (i = 0; i < Pop[p].Ncells; i++) {
+        avg += Pop[p].Cell[i].dpmn_w;
+      }
+      avg /= Pop[p].Ncells;
       fprintf(devfreqs, "%f\t",
-              (Pop[p].Cell[0].dpmn_w + Pop[p].Cell[1].dpmn_w + Pop[p].Cell[2].dpmn_w + Pop[p].Cell[3].dpmn_w
-              + Pop[p].Cell[4].dpmn_w + Pop[p].Cell[5].dpmn_w + Pop[p].Cell[6].dpmn_w + Pop[p].Cell[7].dpmn_w
-              + Pop[p].Cell[8].dpmn_w + Pop[p].Cell[9].dpmn_w + Pop[p].Cell[10].dpmn_w + Pop[p].Cell[11].dpmn_w
-              + Pop[p].Cell[12].dpmn_w + Pop[p].Cell[13].dpmn_w + Pop[p].Cell[14].dpmn_w + Pop[p].Cell[15].dpmn_w)/16/0.015 );  // debugging dopamine
+              (avg/0.015) );  // debugging dopamine
+    }
+    fprintf(devfreqs, "\n");
+    fflush(devfreqs);
+  }
+  counter++;
+}
+
+void SaveE() {
+  static int InitFlag = 1;
+  static FILE *devfreqs;
+  static int counter;
+  static int lasttrial = 0;
+  int i, p;
+  char TempName[100];
+
+  // initialize if it is the first call
+  if (InitFlag || (lasttrial != CurrentTrial)) {
+    sprintf(TempName, "popEs%d.dat", Trialnumber);
+    devfreqs = fopen(TempName, "w");
+    if (devfreqs == NULL) return 0;
+    fprintf(devfreqs, "Time (ms)\t");
+    for (p = 0; p < Npop; p++) {
+      fprintf(devfreqs, "%s\t", Pop[p].Label);
+    }
+    fprintf(devfreqs, "\n");
+    fflush(devfreqs);
+    InitFlag = 0;
+    counter = 0;
+  }
+  if ((counter % STEPSFORSAVINGFREQS) == 0) {
+    fprintf(devfreqs, "%f\t", Time);
+    for (p = 0; p < Npop; p++) {
+      float avg;
+      avg = 0;
+      for (i = 0; i < Pop[p].Ncells; i++) {
+        avg += Pop[p].Cell[i].dpmn_E;
+      }
+      avg /= Pop[p].Ncells;
+      fprintf(devfreqs, "%f\t", avg );  // debugging dopamine
     }
     fprintf(devfreqs, "\n");
     fflush(devfreqs);
@@ -2368,6 +2410,7 @@ int main(int argc, char *argv[])
       } else runflag = SaveSpikes(0);
 
       SaveWeights();
+      SaveE();
       SaveQ1();
       SaveQ2();
       SaveDpmn();
