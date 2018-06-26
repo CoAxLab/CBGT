@@ -221,31 +221,32 @@ typedef struct {
   float h; // gating variable for burst;
 
   // dopaminergic learning
-  int dpmn_type; // 0 = none, 1 = D1, 2 = D2
-  float dpmn_alpha;
+  int dpmn_type;      // 0 = none, 1 = D1, 2 = D2
+  float dpmn_alphaw;  // for weight
   float dpmn_dPRE;
   float dpmn_dPOST;
-  float dpmn_tauE;
+  float dpmn_tauE;    // eligibility trace decay
   float dpmn_tauPRE;
   float dpmn_tauPOST;
-  float dpmn_c;
-  float dpmn_wmax;
-  float dpmn_taug;
-  float dpmn_Q1;
-  float dpmn_Q2;
+  float dpmn_c;       // parameter for f(DA)
+  float dpmn_wmax;    // maximum weight
+  float dpmn_taug;    // not used, is supposed to be conductance decay
+  float dpmn_Q1;      // expected reward of action 1
+  float dpmn_alpha;   // learning rate
   float dpmn_APRE;
   float dpmn_APOST;
-  float dpmn_E;
-  float dpmn_w;
+  float dpmn_E;       // eligibility trace
+  float dpmn_w;       // weight
   float dpmn_XPRE;
   float dpmn_XPOST;
-  float dpmn_DAp;
+  float dpmn_DAp;     // phasic dopamine
   float dpmn_tauDOP;
-  float dpmn_DAt;
-  float dpmn_a;
-  float dpmn_b;
-  float dpmn_m;
-  float dpmn_taum;
+  float dpmn_DAt;     // tonic dopamine
+  float dpmn_a;       // parameter for f(DA)
+  float dpmn_b;       // parameter for f(DA)
+  float dpmn_m;       // motivation, modulates strength of dopamne level
+  float dpmn_taum;    // decay of motivation
+  float dpmn_Q2;      // expected reward of action 2
 
 } Neuron;
 
@@ -357,7 +358,7 @@ typedef struct {
 
   // dopaminergic learning
   int dpmn_type; // 0 = none, 1 = D1, 2 = D2
-  float dpmn_alpha;
+  float dpmn_alphaw;
   float dpmn_dPRE;
   float dpmn_dPOST;
   float dpmn_tauE;
@@ -367,7 +368,7 @@ typedef struct {
   float dpmn_wmax;
   float dpmn_taug;
   float dpmn_Q1;
-  float dpmn_Q2;
+  float dpmn_alpha;
   float dpmn_APRE;
   float dpmn_APOST;
   float dpmn_E;
@@ -381,6 +382,7 @@ typedef struct {
   float dpmn_b;
   float dpmn_m;
   float dpmn_taum;
+  float dpmn_Q2;
 
 } PopDescr;
 
@@ -426,6 +428,10 @@ EventDescr Cutoffs[MAXSTAGES][MAXEVENTS];
 int NStages = 0;
 int CStage = 0;
 int CStageStart = 0;
+
+// dopaminergic learning
+EventDescr EndingEvent; // keep track of which event (AKA which dynamic threshold) was triggered
+int rewardflag; // whether or not to give a reward on the next time step
 
 // Multitrial version:
 
@@ -680,8 +686,8 @@ int DescribeNetwork() {
       }
 
       //int dpmn_type; // 0 = none, 1 = D1, 2 = D2
-      if (strncmp(s, "dpmn_type=", 2) == 0) {
-        PopD[currentpop].dpmn_type = atoi(s + 2);
+      if (strncmp(s, "dpmn_type=", 10) == 0) {
+        PopD[currentpop].dpmn_type = atoi(s + 10);
         report("  dpmn_type=%d\n", PopD[currentpop].dpmn_type);
         continue;
       }
@@ -711,7 +717,7 @@ int DescribeNetwork() {
       popparams[20] = (PairFloat){"V_T", &PopD[currentpop].V_T}; // (mV)
       popparams[21] = (PairFloat){"g_T", &PopD[currentpop].g_T}; // (mS)
       // parameters for the population -- dopaminergic learning
-      popparams[22] = (PairFloat){"dpmn_alpha", &PopD[currentpop].dpmn_alpha};
+      popparams[22] = (PairFloat){"dpmn_alphaw", &PopD[currentpop].dpmn_alphaw};
       popparams[23] = (PairFloat){"dpmn_dPRE", &PopD[currentpop].dpmn_dPRE};
       popparams[24] = (PairFloat){"dpmn_dPOST", &PopD[currentpop].dpmn_dPOST};
       popparams[25] = (PairFloat){"dpmn_tauE", &PopD[currentpop].dpmn_tauE};
@@ -721,7 +727,7 @@ int DescribeNetwork() {
       popparams[29] = (PairFloat){"dpmn_wmax", &PopD[currentpop].dpmn_wmax};
       popparams[30] = (PairFloat){"dpmn_taug", &PopD[currentpop].dpmn_taug};
       popparams[31] = (PairFloat){"dpmn_Q1", &PopD[currentpop].dpmn_Q1};
-      popparams[32] = (PairFloat){"dpmn_Q2", &PopD[currentpop].dpmn_Q2};
+      popparams[32] = (PairFloat){"dpmn_alpha", &PopD[currentpop].dpmn_alpha};
       popparams[33] = (PairFloat){"dpmn_APRE", &PopD[currentpop].dpmn_APRE};
       popparams[34] = (PairFloat){"dpmn_APOST", &PopD[currentpop].dpmn_APOST};
       popparams[35] = (PairFloat){"dpmn_E", &PopD[currentpop].dpmn_E};
@@ -735,8 +741,9 @@ int DescribeNetwork() {
       popparams[43] = (PairFloat){"dpmn_b", &PopD[currentpop].dpmn_b};
       popparams[44] = (PairFloat){"dpmn_m", &PopD[currentpop].dpmn_m};
       popparams[45] = (PairFloat){"dpmn_taum", &PopD[currentpop].dpmn_taum};
+      popparams[46] = (PairFloat){"dpmn_Q2", &PopD[currentpop].dpmn_Q2};
 
-      for (paramnum = 0; paramnum < 46; paramnum++) {
+      for (paramnum = 0; paramnum < 47; paramnum++) {
         PairFloat param;
         param = popparams[paramnum];
         int length;
@@ -1063,13 +1070,13 @@ int ParseProtocol() {
     }
 
     if (strncmp(s, "RewardFlag=", 11) == 0) {
-      s += 8;
+      s += 11;
       Events[NStages][NEvents].RewardFlag = atoi(s);
       report("  Reward Flag: %d\n", Events[NStages][NEvents].RewardFlag);
       continue;
     }
     if (strncmp(s, "RewardVal=", 10) == 0) {
-      s += 8;
+      s += 10;
       Events[NStages][NEvents].RewardVal = atof(s);
       report("  Reward Value: %f\n", Events[NStages][NEvents].RewardVal);
       continue;
@@ -1177,16 +1184,17 @@ int GenerateNetwork() {
 
       // single neuron parameters -- dopaminergic learning
       Pop[p].Cell[i].dpmn_type = PopD[p].dpmn_type;
-      Pop[p].Cell[i].dpmn_alpha = PopD[p].dpmn_alpha;
+      Pop[p].Cell[i].dpmn_alphaw = PopD[p].dpmn_alphaw;
       Pop[p].Cell[i].dpmn_dPRE = PopD[p].dpmn_dPRE;
       Pop[p].Cell[i].dpmn_dPOST = PopD[p].dpmn_dPOST;
       Pop[p].Cell[i].dpmn_tauE = PopD[p].dpmn_tauE;
       Pop[p].Cell[i].dpmn_tauPRE = PopD[p].dpmn_tauPRE;
+      Pop[p].Cell[i].dpmn_tauPOST = PopD[p].dpmn_tauPOST;
       Pop[p].Cell[i].dpmn_c = PopD[p].dpmn_c;
       Pop[p].Cell[i].dpmn_wmax = PopD[p].dpmn_wmax;
       Pop[p].Cell[i].dpmn_taug = PopD[p].dpmn_taug;
       Pop[p].Cell[i].dpmn_Q1 = PopD[p].dpmn_Q1;
-      Pop[p].Cell[i].dpmn_Q2 = PopD[p].dpmn_Q2;
+      Pop[p].Cell[i].dpmn_alpha = PopD[p].dpmn_alpha;
       Pop[p].Cell[i].dpmn_APRE = PopD[p].dpmn_APRE;
       Pop[p].Cell[i].dpmn_APOST = PopD[p].dpmn_APOST;
       Pop[p].Cell[i].dpmn_E = PopD[p].dpmn_E;
@@ -1200,6 +1208,7 @@ int GenerateNetwork() {
       Pop[p].Cell[i].dpmn_b = PopD[p].dpmn_b;
       Pop[p].Cell[i].dpmn_m = PopD[p].dpmn_m;
       Pop[p].Cell[i].dpmn_taum = PopD[p].dpmn_taum;
+      Pop[p].Cell[i].dpmn_Q2 = PopD[p].dpmn_Q2;
 
       // receptors
       Pop[p].Cell[i].Nreceptors = PopD[p].Nreceptors;
@@ -1535,8 +1544,8 @@ int SimulateOneTimeStep() {
         tr = Pop[p].Cell[sourceneuron].Axonals[j].TargetReceptor;
         // dopaminergic learning equation 1
         dpmn_eff = Pop[p].Cell[sourceneuron].Axonals[j].Efficacy;
-        if (Pop[tp].Cell[tn].dpmn_type) {
-          dpmn_eff *= Pop[tp].Cell[tn].dpmn_w;
+        if (Pop[tp].Cell[tn].dpmn_type && tr != GABA) {
+          dpmn_eff *= Pop[tp].Cell[tn].dpmn_w / 0.015; // adjust scale of weight
         }
         if (Pop[p].Cell[sourceneuron].Axonals[j].LastConductance <
             0.) {  // NO NMDA (no saturation)
@@ -1569,8 +1578,9 @@ int SimulateOneTimeStep() {
             Pop[p].Cell[sourceneuron].Axonals[j].D;
 
         // dopaminergic learning
-        Pop[tp].Cell[tn].dpmn_XPRE = 1; // presynaptic from perspective of target neuron
-
+        if (tr != GABA) {
+          Pop[tp].Cell[tn].dpmn_XPRE = 1; // presynaptic from perspective of target neuron
+        }
       }  // for j
          //                if(sourceneuron==20) printf("
          //                %f\n",Pop[p].Cell[sourceneuron].D);
@@ -1721,7 +1731,9 @@ int SimulateOneTimeStep() {
         Pop[p].Cell[i].Ca += Pop[p].Cell[i].alpha_ca;
 
         // dopaminergic learning
-        Pop[p].Cell[i].dpmn_XPOST = 1; // this is the post-synaptic cell spiking
+        if (PopD[p].dpmn_type){
+          Pop[p].Cell[i].dpmn_XPOST = 1; // this is the post-synaptic cell spiking
+        }
       }
     }
   }
@@ -1730,35 +1742,56 @@ int SimulateOneTimeStep() {
   for (p = 0; p < Npop; p++) {
     if (PopD[p].dpmn_type) {
       for (i = 0; i < Pop[p].Ncells; i++) {
-        Neuron nrn;
         float fDA;
         float DA;
-        nrn = Pop[p].Cell[i];
-        if (nrn.dpmn_type) {
+        float DAinc;
+        if (Pop[p].Cell[i].dpmn_type) {
           // these are simply the 1st order approximations, RK45 not used
           // equation 5 term 2
-          nrn.dpmn_DAp -= dt * nrn.dpmn_DAp / nrn.dpmn_tauDOP;
+          Pop[p].Cell[i].dpmn_DAp -= dt * Pop[p].Cell[i].dpmn_DAp / Pop[p].Cell[i].dpmn_tauDOP;
+          // equation 5 term 1, the learning step
+          if (rewardflag) {
+            // report("dpmn type %d\n", Pop[p].Cell[i].dpmn_type);
+            if (rewardflag == 1) {
+              DAinc = EndingEvent.RewardVal - Pop[p].Cell[i].dpmn_Q1;
+              Pop[p].Cell[i].dpmn_Q1 += Pop[p].Cell[i].dpmn_alpha * (DAinc);
+            }
+            if (rewardflag == 2) {
+              DAinc = EndingEvent.RewardVal - Pop[p].Cell[i].dpmn_Q2;
+              Pop[p].Cell[i].dpmn_Q2 += Pop[p].Cell[i].dpmn_alpha * (DAinc);
+            }
+            Pop[p].Cell[i].dpmn_DAp = DAinc;
+          }
           // equations 2
-          nrn.dpmn_APRE += dt * (nrn.dpmn_dPRE * nrn.dpmn_XPRE - nrn.dpmn_APRE)
-                           / nrn.dpmn_tauPRE;
-          nrn.dpmn_APOST += dt * (nrn.dpmn_dPOST * nrn.dpmn_XPOST - nrn.dpmn_APOST)
-                            / nrn.dpmn_tauPOST;
+          Pop[p].Cell[i].dpmn_APRE += dt * (Pop[p].Cell[i].dpmn_dPRE * Pop[p].Cell[i].dpmn_XPRE - Pop[p].Cell[i].dpmn_APRE)
+                           / Pop[p].Cell[i].dpmn_tauPRE;
+          Pop[p].Cell[i].dpmn_APOST += dt * (Pop[p].Cell[i].dpmn_dPOST * Pop[p].Cell[i].dpmn_XPOST - Pop[p].Cell[i].dpmn_APOST)
+                            / Pop[p].Cell[i].dpmn_tauPOST;
+        //  if (Pop[p].Cell[i].dpmn_APOST == Pop[p].Cell[i].dpmn_APOST) {
+        //    report("test\n");
+          //}
           // equation 3
-          nrn.dpmn_E += dt * (nrn.dpmn_XPOST * nrn.dpmn_APRE
-                              - nrn.dpmn_XPRE * nrn.dpmn_APOST - nrn.dpmn_E)
-                        / nrn.dpmn_tauE;
+          Pop[p].Cell[i].dpmn_E += dt * (Pop[p].Cell[i].dpmn_XPOST * Pop[p].Cell[i].dpmn_APRE
+                              - Pop[p].Cell[i].dpmn_XPRE * Pop[p].Cell[i].dpmn_APOST - Pop[p].Cell[i].dpmn_E)
+                        / Pop[p].Cell[i].dpmn_tauE;
           // calculate DA (total dopamine)
-          DA = nrn.dpmn_m * (nrn.dpmn_DAp + nrn.dpmn_DAt);
-          nrn.dpmn_m -= dt * nrn.dpmn_m / nrn.dpmn_taum;
+          DA = Pop[p].Cell[i].dpmn_m * (Pop[p].Cell[i].dpmn_DAp + Pop[p].Cell[i].dpmn_DAt);
+          if (Pop[p].Cell[i].dpmn_taum > 1) { // so that 0 = no decay as opposed to infinite decay
+            Pop[p].Cell[i].dpmn_m -= dt * Pop[p].Cell[i].dpmn_m / Pop[p].Cell[i].dpmn_taum;
+          }
           // equation 4
-          fDA = nrn.dpmn_a * pow(DA - nrn.dpmn_c, 3)
-                / (nrn.dpmn_b + pow(DA - nrn.dpmn_c, 3));
-          nrn.dpmn_w += dt * nrn.dpmn_alpha * nrn.dpmn_E * fDA
-                        * (nrn.dpmn_wmax - nrn.dpmn_w);
+          fDA = Pop[p].Cell[i].dpmn_a * pow(DA - Pop[p].Cell[i].dpmn_c, 3)
+                / (Pop[p].Cell[i].dpmn_b + pow(DA - Pop[p].Cell[i].dpmn_c, 3));
+          Pop[p].Cell[i].dpmn_w += dt * (Pop[p].Cell[i].dpmn_wmax - Pop[p].Cell[i].dpmn_w)
+                                * Pop[p].Cell[i].dpmn_alphaw * fDA * Pop[p].Cell[i].dpmn_E
+                                ;
         }
       }
     }
   }
+
+  // reward has been performed if needed, so reset rewardflag
+  rewardflag = 0;
 
   // Update the pointers of the table of spikes
   // ---------------------------------------------------------------
@@ -1941,12 +1974,151 @@ int SaveSpikes(int eventflag) {
   if ((counter % STEPSFORSAVINGFREQS) == 0) {
     for (int co = 0; co < CCutoff; co++) {
       if (meanfreqs[Cutoffs[CStage][co].PopNumber] > Cutoffs[CStage][co].FreqExt) {
+        EndingEvent = Cutoffs[CStage][co];
         res = 0;
       }
     }
   }
   counter++;
   return res;
+}
+
+void SaveWeights() {
+  static int InitFlag = 1;
+  static FILE *devfreqs;
+  static int counter;
+  static int lasttrial = 0;
+  int i, p;
+  char TempName[100];
+
+  // initialize if it is the first call
+  if (InitFlag || (lasttrial != CurrentTrial)) {
+    sprintf(TempName, "popweights%d.dat", Trialnumber);
+    devfreqs = fopen(TempName, "w");
+    if (devfreqs == NULL) return 0;
+    fprintf(devfreqs, "Time (ms)\t");
+    for (p = 0; p < Npop; p++) {
+      fprintf(devfreqs, "%s\t", Pop[p].Label);
+    }
+    fprintf(devfreqs, "\n");
+    fflush(devfreqs);
+    InitFlag = 0;
+    counter = 0;
+  }
+  if ((counter % STEPSFORSAVINGFREQS) == 0) {
+    fprintf(devfreqs, "%f\t", Time);
+    for (p = 0; p < Npop; p++) {
+      fprintf(devfreqs, "%f\t",
+              (Pop[p].Cell[0].dpmn_w + Pop[p].Cell[1].dpmn_w + Pop[p].Cell[2].dpmn_w + Pop[p].Cell[3].dpmn_w
+              + Pop[p].Cell[4].dpmn_w + Pop[p].Cell[5].dpmn_w + Pop[p].Cell[6].dpmn_w + Pop[p].Cell[7].dpmn_w
+              + Pop[p].Cell[8].dpmn_w + Pop[p].Cell[9].dpmn_w + Pop[p].Cell[10].dpmn_w + Pop[p].Cell[11].dpmn_w
+              + Pop[p].Cell[12].dpmn_w + Pop[p].Cell[13].dpmn_w + Pop[p].Cell[14].dpmn_w + Pop[p].Cell[15].dpmn_w)/16/0.015 );  // debugging dopamine
+    }
+    fprintf(devfreqs, "\n");
+    fflush(devfreqs);
+  }
+  counter++;
+}
+
+void SaveQ1() {
+  static int InitFlag = 1;
+  static FILE *devfreqs;
+  static int counter;
+  static int lasttrial = 0;
+  int i, p;
+  char TempName[100];
+
+  // initialize if it is the first call
+  if (InitFlag || (lasttrial != CurrentTrial)) {
+    sprintf(TempName, "popQ1s%d.dat", Trialnumber);
+    devfreqs = fopen(TempName, "w");
+    if (devfreqs == NULL) return 0;
+    fprintf(devfreqs, "Time (ms)\t");
+    for (p = 0; p < Npop; p++) {
+      fprintf(devfreqs, "%s\t", Pop[p].Label);
+    }
+    fprintf(devfreqs, "\n");
+    fflush(devfreqs);
+    InitFlag = 0;
+    counter = 0;
+  }
+  if ((counter % STEPSFORSAVINGFREQS) == 0) {
+    fprintf(devfreqs, "%f\t", Time);
+    for (p = 0; p < Npop; p++) {
+      fprintf(devfreqs, "%f\t",
+              (Pop[p].Cell[0].dpmn_Q1 + Pop[p].Cell[1].dpmn_Q1 + Pop[p].Cell[3].dpmn_Q1 + Pop[p].Cell[4].dpmn_Q1)/4 );  // debugging dopamine
+    }
+    fprintf(devfreqs, "\n");
+    fflush(devfreqs);
+  }
+  counter++;
+}
+
+void SaveQ2() {
+  static int InitFlag = 1;
+  static FILE *devfreqs;
+  static int counter;
+  static int lasttrial = 0;
+  int i, p;
+  char TempName[100];
+
+  // initialize if it is the first call
+  if (InitFlag || (lasttrial != CurrentTrial)) {
+    sprintf(TempName, "popQ2s%d.dat", Trialnumber);
+    devfreqs = fopen(TempName, "w");
+    if (devfreqs == NULL) return 0;
+    fprintf(devfreqs, "Time (ms)\t");
+    for (p = 0; p < Npop; p++) {
+      fprintf(devfreqs, "%s\t", Pop[p].Label);
+    }
+    fprintf(devfreqs, "\n");
+    fflush(devfreqs);
+    InitFlag = 0;
+    counter = 0;
+  }
+  if ((counter % STEPSFORSAVINGFREQS) == 0) {
+    fprintf(devfreqs, "%f\t", Time);
+    for (p = 0; p < Npop; p++) {
+      fprintf(devfreqs, "%f\t",
+              (Pop[p].Cell[0].dpmn_Q2 + Pop[p].Cell[1].dpmn_Q2 + Pop[p].Cell[3].dpmn_Q2 + Pop[p].Cell[4].dpmn_Q2)/4 );  // debugging dopamine
+    }
+    fprintf(devfreqs, "\n");
+    fflush(devfreqs);
+  }
+  counter++;
+}
+void SaveDpmn() {
+  static int InitFlag = 1;
+  static FILE *devfreqs;
+  static int counter;
+  static int lasttrial = 0;
+  int i, p;
+  char TempName[100];
+
+  // initialize if it is the first call
+  if (InitFlag || (lasttrial != CurrentTrial)) {
+    sprintf(TempName, "dopamine%d.dat", Trialnumber);
+    devfreqs = fopen(TempName, "w");
+    if (devfreqs == NULL) return 0;
+    fprintf(devfreqs, "Time (ms)\t");
+    for (p = 0; p < Npop; p++) {
+      fprintf(devfreqs, "%s\t", Pop[p].Label);
+    }
+    fprintf(devfreqs, "\n");
+    fflush(devfreqs);
+    InitFlag = 0;
+    counter = 0;
+  }
+  if ((counter % STEPSFORSAVINGFREQS) == 0) {
+    fprintf(devfreqs, "%f\t", Time);
+    for (p = 0; p < Npop; p++) {
+      fprintf(devfreqs, "%f\t",
+              Pop[p].Cell[i].dpmn_m * (Pop[p].Cell[i].dpmn_DAp + Pop[p].Cell[i].dpmn_DAt) );  // debugging dopamine
+    }
+    fprintf(devfreqs, "\n");
+    fflush(devfreqs);
+  }
+  counter++;
 }
 
 int SaveTraces() {
@@ -2001,6 +2173,7 @@ int HandleEvent(void) {
 
   if (Events[CStage][CEvent].Type == ENDOFTRIAL) {
     if (Events[CStage][CEvent].PopNumber < 0) {
+      EndingEvent = Events[CStage][CEvent];
       return 0;
     }
     // dynamic cutoff
@@ -2194,6 +2367,10 @@ int main(int argc, char *argv[])
         }
       } else runflag = SaveSpikes(0);
 
+      SaveWeights();
+      SaveQ1();
+      SaveQ2();
+      SaveDpmn();
       SaveTraces();
 
       if (runflag == 0 && CStage < NStages - 1) {
@@ -2202,7 +2379,11 @@ int main(int argc, char *argv[])
         CEvent=0;
         CCutoff=0;
         NextEventTime=Events[CStage][CEvent].ETime + CStageStart;
+        rewardflag = EndingEvent.RewardFlag;
         runflag = 1;
+        report("time %f\n", Time);
+        report("reward flag %d\n", rewardflag);
+        report("reward value %f\n", EndingEvent.RewardVal);
       }
     }
     report("\rEnd of the trial\n");
