@@ -663,7 +663,7 @@ def mcInfo(**kwargs):
 
     hes = []
     houts = []
-    for i in range(0,50):
+    for i in range(0,10):
         hes.append(makeHandleEvent('reset', 0, 'sensory', [], config['BaseStim']))
         hes.append(makeHandleEvent('wrong stimulus', config['Start'], 'sensory', [], config['WrongStim']+0.025*(i%2)))
         hes.append(makeHandleEvent('right stimulus', config['Start'], 'sensory', [0], config['RightStim']+0.025*((i+1)%2)))
@@ -672,8 +672,9 @@ def mcInfo(**kwargs):
         hes.append(makeHandleEvent('dynamic cutoff', config['Start'], 'out', [0], config['Dynamic'], 'EndTrial', 1, 1))
         hes.append(makeHandleEvent('dynamic cutoff', config['Start'], 'out', [1], config['Dynamic'], 'EndTrial', 2, 0))
         hes.append(makeHandleEvent('time limit', 600, etype='EndTrial'))
-        houts.append(makeHandleEvent('decision made', config['Start'], 'out', [], config['Dynamic'], 'EndTrial'))
-        houts.append(makeHandleEvent('time limit', 600, etype='EndTrial'))
+
+        houts.append(makeHandleEvent('decisions', config['Start'], 'out', [], config['Dynamic'], 'EndTrial'))
+        houts.append(makeHandleEvent('decisions', 600, etype='EndTrial'))
 
     # timelimit = 1800
     timelimit = 1200
@@ -876,9 +877,10 @@ def findOutputs2(trialdata, df=None):
     curstage = 0
     stagestart = 0
     firstrelevantevent = 0
-    lastrelevantevent = 1
+    lastrelevantevent = 0
     for e in range(firstrelevantevent, len(outevents)):
         handleevent = outevents[e]
+        # print('he start ' + str(handleevent['time']))
         if len(outputs[handleevent['label']]) <= curstage:
             output = {'time': None,
                       'start': handleevent['time'],
@@ -886,19 +888,23 @@ def findOutputs2(trialdata, df=None):
                       'pathvals': None,
                       'threshold': handleevent['freq']}
             outputs[handleevent['label']].append(output)
+            # print('test ' + handleevent['label'])
         if e == lastrelevantevent and not (handleevent['etype'] == 'EndTrial' and handleevent['hname'] == ''):
-            lastrelevantevent += 1;
+            lastrelevantevent += 1
+    lastrelevantevent += 1
     for i in range(0, df.shape[0]):
         curtime = df.at[i, 'Time (ms)']
         needsmorestaging = 0
+        # print(firstrelevantevent, lastrelevantevent, curtime)
         for e in range(firstrelevantevent, lastrelevantevent):
             handleevent = outevents[e]
             output = outputs[handleevent['label']][curstage]
-            if curtime < output['start'] + stagestart:
+            if curtime < handleevent['time'] + stagestart:
                 continue
             if handleevent['etype'] == 'EndTrial' and handleevent['hname'] == '':
                 if curtime >= output['start'] + stagestart:
                     needsmorestaging = 1
+                    # print('timeout triggered')
                     continue
             for handle in trialdata['handles']:
                 if handle['name'] == handleevent['hname']:
@@ -915,12 +921,13 @@ def findOutputs2(trialdata, df=None):
                                     output['pathvals'] = handle['pathvals']
                                     if handleevent['etype'] == 'EndTrial':
                                         needsmorestaging = 1
+                                        # print('threshold triggered')
         if needsmorestaging == 1:
             curstage += 1
             stagestart = curtime
             firstrelevantevent = lastrelevantevent
-            lastrelevantevent += 1
             for e in range(firstrelevantevent, len(outevents)):
+                # print(e)
                 handleevent = outevents[e]
                 if len(outputs[handleevent['label']]) <= curstage:
                     output = {'time': None,
@@ -929,8 +936,9 @@ def findOutputs2(trialdata, df=None):
                               'pathvals': None,
                               'threshold': handleevent['freq']}
                     outputs[handleevent['label']].append(output)
-                if e == lastrelevantevent and not (handleevent['etype'] == 'EndTrial' and handleevent['hname'] == ''):
-                    lastrelevantevent += 1;
+                if e  == lastrelevantevent and not (handleevent['etype'] == 'EndTrial' and handleevent['hname'] == ''):
+                    lastrelevantevent += 1
+            lastrelevantevent += 1
     trialdata['outputs'] = outputs
     return outputs
 
