@@ -509,8 +509,8 @@ def getD1CellDefaults():
                 'dpmn_c':0.05,
                 # explicit initial conditions
                 'dpmn_w':0.015,
-                'dpmn_Q1':0.0,
-                'dpmn_Q2':0.0,
+                'dpmn_Q1':0.5,
+                'dpmn_Q2':0.5,
                 # implicit initial conditions
                 'dpmn_m': 1.0,
                 'dpmn_E': 0.0,
@@ -526,7 +526,7 @@ def getD2CellDefaults():
                 'dpmn_tauDOP':2.0*10,
                  #'dpmn_taug':3.0,
                 'dpmn_alpha':0.05,
-                'dpmn_DAt':0.2,
+                'dpmn_DAt':0.25,
                 'dpmn_taum':4000.0*5,
                 # specific to D1
                 'dpmn_type': 2,
@@ -542,8 +542,8 @@ def getD2CellDefaults():
                 'dpmn_c':0.05,
                 # explicit initial conditions
                 'dpmn_w':0.015,
-                'dpmn_Q1':0.0,
-                'dpmn_Q2':0.0,
+                'dpmn_Q1':0.5,
+                'dpmn_Q2':0.5,
                 # implicit initial conditions
                 'dpmn_m': 1.0,
                 'dpmn_E': 0.0,
@@ -588,12 +588,12 @@ def describeBG(**kwargs):
     D1STR = makePop("D1STR", [GABA, [AMPA, 800, 4., 1.3], NMDA], cd_pre, getD1CellDefaults())
     camP(c, 'D1STR', 'D1STR', 'GABA', ['syn'], .135, .28)
     camP(c, 'D1STR', 'D2STR', 'GABA', ['syn'], .135, .28)
-    camP(c, 'D1STR', 'GPi', 'GABA', ['syn'], .55, 1.05*0.90, name='direct')
+    camP(c, 'D1STR', 'GPi', 'GABA', ['syn'], .55, 1.05, name='direct')
 
     D2STR = makePop("D2STR", [GABA, [AMPA, 800, 4., 1.3], NMDA], cd_pre, getD2CellDefaults())
-    camP(c, 'D2STR', 'D2STR', 'GABA', ['anti'], .135, .28)
-    camP(c, 'D2STR', 'D1STR', 'GABA', ['syn'], .15, .28/2)
-    camP(c, 'D2STR', 'D1STR', 'GABA', ['anti'], .15, .28/2)
+    camP(c, 'D2STR', 'D2STR', 'GABA', ['syn'], .135, .28)
+    camP(c, 'D2STR', 'D1STR', 'GABA', ['syn'], .15, .28*.8)
+    camP(c, 'D2STR', 'D1STR', 'GABA', ['anti'], .15, .28*.8)
     camP(c, 'D2STR', 'GPeP', 'GABA', ['syn'], .74, 1.65, name='indirect')
 
     FSI = makePop("FSI", [GABA, [AMPA, 800, 1.55, 3.], NMDA], cd_pre, {'C': 0.2, 'Taum': 10})
@@ -663,10 +663,10 @@ def mcInfo(**kwargs):
 
     hes = []
     houts = []
-    for i in range(0,10):
+    for i in range(0,50):
         hes.append(makeHandleEvent('reset', 0, 'sensory', [], config['BaseStim']))
-        hes.append(makeHandleEvent('wrong stimulus', config['Start'], 'sensory', [], config['WrongStim']+0.025*(i%2)))
-        hes.append(makeHandleEvent('right stimulus', config['Start'], 'sensory', [0], config['RightStim']+0.025*((i+1)%2)))
+        hes.append(makeHandleEvent('wrong stimulus', config['Start'], 'sensory', [], config['WrongStim']+0.0025*((i+1)%2)))
+        hes.append(makeHandleEvent('right stimulus', config['Start'], 'sensory', [0], config['RightStim']+0.0025*(i%2)))
         hes.append(makeHandleEvent('hyperdirect', config['Start'], 'threshold', [], config['STNExtFreq']+.75))
         hes.append(makeHandleEvent('hyperdirect', config['Start'], 'threshold', [0], config['STNExtFreq']+.75))
         hes.append(makeHandleEvent('dynamic cutoff', config['Start'], 'out', [0], config['Dynamic'], 'EndTrial', 1, 1))
@@ -903,6 +903,8 @@ def findOutputs2(trialdata, df=None):
                 continue
             if handleevent['etype'] == 'EndTrial' and handleevent['hname'] == '':
                 if curtime >= output['start'] + stagestart:
+                    if output['time'] is None:
+                        output['time'] = curtime
                     needsmorestaging = 1
                     # print('timeout triggered')
                     continue
