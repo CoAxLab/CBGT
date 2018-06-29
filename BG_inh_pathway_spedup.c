@@ -1776,15 +1776,17 @@ int SimulateOneTimeStep() {
                         / Pop[p].Cell[i].dpmn_tauE;
           // calculate DA (total dopamine)
           DA = Pop[p].Cell[i].dpmn_m * (Pop[p].Cell[i].dpmn_DAp + Pop[p].Cell[i].dpmn_DAt);
+          // if (DA < 0) {
+          //   DA = 0;
+          // }
           if (Pop[p].Cell[i].dpmn_taum > 1) { // so that 0 = no decay as opposed to infinite decay
             Pop[p].Cell[i].dpmn_m -= dt * Pop[p].Cell[i].dpmn_m / Pop[p].Cell[i].dpmn_taum;
           }
           // equation 4
           fDA = Pop[p].Cell[i].dpmn_a * pow(DA - Pop[p].Cell[i].dpmn_c, 3)
-                / (Pop[p].Cell[i].dpmn_b + pow(DA - Pop[p].Cell[i].dpmn_c, 3));
+                / (Pop[p].Cell[i].dpmn_b + pow(abs(DA - Pop[p].Cell[i].dpmn_c), 3));
           Pop[p].Cell[i].dpmn_w += dt * (Pop[p].Cell[i].dpmn_wmax - Pop[p].Cell[i].dpmn_w)
-                                * Pop[p].Cell[i].dpmn_alphaw * fDA * Pop[p].Cell[i].dpmn_E
-                                ;
+                                * Pop[p].Cell[i].dpmn_alphaw * fDA * Pop[p].Cell[i].dpmn_E;
         }
       }
     }
@@ -1813,7 +1815,7 @@ int SimulateOneTimeStep() {
 
 // A matlab script is generated at the beginning, just before starting the simulation.
 
-#define TIMEWINDOWFORFREQ 20.  // time window on which the mean pop frequency is estimated (in ms)
+#define TIMEWINDOWFORFREQ 10.  // time window on which the mean pop frequency is estimated (in ms)
 #define RASTERPLOTNEURONS 50   // number of neurons in the raster plot
 #define NUMBEROFTRACES 2  // number of visualized traces of V
 #define STEPSFORPRINTIGFREQS 500 // every ... step, the frequencies are printed
@@ -2154,8 +2156,13 @@ void SaveDpmn() {
   if ((counter % STEPSFORSAVINGFREQS) == 0) {
     fprintf(devfreqs, "%f\t", Time);
     for (p = 0; p < Npop; p++) {
+      float DA;
+      DA = Pop[p].Cell[i].dpmn_m * (Pop[p].Cell[i].dpmn_DAp + Pop[p].Cell[i].dpmn_DAt);
+      // if (DA < 0) {
+      //   DA = 0;
+      // }
       fprintf(devfreqs, "%f\t",
-              Pop[p].Cell[i].dpmn_m * (Pop[p].Cell[i].dpmn_DAp + Pop[p].Cell[i].dpmn_DAt) );  // debugging dopamine
+              DA );  // debugging dopamine
     }
     fprintf(devfreqs, "\n");
     fflush(devfreqs);
