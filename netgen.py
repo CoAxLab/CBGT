@@ -492,12 +492,12 @@ def getD1CellDefaults():
                 # not specific
                 'dpmn_tauDOP':2.0*10,
                  #'dpmn_taug':3.0,
-                'dpmn_alpha':0.05,
-                'dpmn_DAt':0.2,
-                'dpmn_taum':4000.0*5,
+                'dpmn_alpha':0.025*3,
+                'dpmn_DAt':0.04,
+                'dpmn_taum':0,#4000.0*5,
                 # specific to D1
                 'dpmn_type': 1,
-                'dpmn_alphaw': 0.00080,
+                'dpmn_alphaw': 0.00015*2,
                 'dpmn_dPRE': 10,
                 'dpmn_dPOST':6,
                 'dpmn_tauE':3*3,
@@ -506,11 +506,11 @@ def getD1CellDefaults():
                 'dpmn_wmax':0.13,
                 'dpmn_a':1.0,
                 'dpmn_b':0.1,
-                'dpmn_c':0.05,
+                'dpmn_c':0.06,
                 # explicit initial conditions
                 'dpmn_w':0.015,
-                'dpmn_Q1':0.5,
-                'dpmn_Q2':0.5,
+                'dpmn_Q1':0.0,
+                'dpmn_Q2':0.0,
                 # implicit initial conditions
                 'dpmn_m': 1.0,
                 'dpmn_E': 0.0,
@@ -525,12 +525,12 @@ def getD2CellDefaults():
                 # not specific
                 'dpmn_tauDOP':2.0*10,
                  #'dpmn_taug':3.0,
-                'dpmn_alpha':0.05,
-                'dpmn_DAt':0.25,
-                'dpmn_taum':4000.0*5,
+                'dpmn_alpha':0.025*3,
+                'dpmn_DAt':0.04,
+                'dpmn_taum':0,#4000.0*5,
                 # specific to D1
                 'dpmn_type': 2,
-                'dpmn_alphaw': -0.00055,
+                'dpmn_alphaw': -0.00007*2,
                 'dpmn_dPRE': 10,
                 'dpmn_dPOST':6,
                 'dpmn_tauE':3*3,
@@ -539,11 +539,11 @@ def getD2CellDefaults():
                 'dpmn_wmax':0.03,
                 'dpmn_a':0.5,
                 'dpmn_b':0.005,
-                'dpmn_c':0.05,
+                'dpmn_c':0.06,
                 # explicit initial conditions
                 'dpmn_w':0.015,
-                'dpmn_Q1':0.5,
-                'dpmn_Q2':0.5,
+                'dpmn_Q1':0.0,
+                'dpmn_Q2':0.0,
                 # implicit initial conditions
                 'dpmn_m': 1.0,
                 'dpmn_E': 0.0,
@@ -586,14 +586,14 @@ def describeBG(**kwargs):
     camP(c, 'LIP', 'Th', ['AMPA', 'NMDA'], ['all'], 0.35, [config['CxTh'], config['CxTh']])
 
     D1STR = makePop("D1STR", [GABA, [AMPA, 800, 4., 1.3], NMDA], cd_pre, getD1CellDefaults())
-    camP(c, 'D1STR', 'D1STR', 'GABA', ['syn'], .135, .28)
-    camP(c, 'D1STR', 'D2STR', 'GABA', ['syn'], .135, .28)
-    camP(c, 'D1STR', 'GPi', 'GABA', ['syn'], .55, 1.05, name='direct')
+    camP(c, 'D1STR', 'D1STR', 'GABA', ['syn'], .135, .23)
+    camP(c, 'D1STR', 'D2STR', 'GABA', ['syn'], .135, .23)
+    camP(c, 'D1STR', 'GPi', 'GABA', ['syn'], .55, 1.11, name='direct')
 
     D2STR = makePop("D2STR", [GABA, [AMPA, 800, 4., 1.3], NMDA], cd_pre, getD2CellDefaults())
-    camP(c, 'D2STR', 'D2STR', 'GABA', ['syn'], .135, .28)
-    camP(c, 'D2STR', 'D1STR', 'GABA', ['syn'], .15, .28*.8)
-    camP(c, 'D2STR', 'D1STR', 'GABA', ['anti'], .15, .28*.8)
+    camP(c, 'D2STR', 'D2STR', 'GABA', ['syn'], .135, .23)
+    camP(c, 'D2STR', 'D1STR', 'GABA', ['syn'], .135, .23)
+    camP(c, 'D2STR', 'D1STR', 'GABA', ['anti'], .15, .25)
     camP(c, 'D2STR', 'GPeP', 'GABA', ['syn'], .74, 1.65, name='indirect')
 
     FSI = makePop("FSI", [GABA, [AMPA, 800, 1.55, 3.], NMDA], cd_pre, {'C': 0.2, 'Taum': 10})
@@ -663,21 +663,28 @@ def mcInfo(**kwargs):
 
     hes = []
     houts = []
-    for i in range(0,50):
+    for i in range(0,30):
         hes.append(makeHandleEvent('reset', 0, 'sensory', [], config['BaseStim']))
-        hes.append(makeHandleEvent('wrong stimulus', config['Start'], 'sensory', [], config['WrongStim']+0.0025*((i+1)%2)))
-        hes.append(makeHandleEvent('right stimulus', config['Start'], 'sensory', [0], config['RightStim']+0.0025*(i%2)))
+        hes.append(makeHandleEvent('wrong stimulus', config['Start'], 'sensory', [], config['WrongStim'])) # +0.0025*((i+1)%2)
+        hes.append(makeHandleEvent('right stimulus', config['Start'], 'sensory', [0], config['RightStim'])) # +0.0025*(i%2)
         hes.append(makeHandleEvent('hyperdirect', config['Start'], 'threshold', [], config['STNExtFreq']+.75))
         hes.append(makeHandleEvent('hyperdirect', config['Start'], 'threshold', [0], config['STNExtFreq']+.75))
-        hes.append(makeHandleEvent('dynamic cutoff', config['Start'], 'out', [0], config['Dynamic'], 'EndTrial', 1, 1))
-        hes.append(makeHandleEvent('dynamic cutoff', config['Start'], 'out', [1], config['Dynamic'], 'EndTrial', 2, 0))
+
+        #if random.random() <= 0.75:
+        if i < 15:
+            hes.append(makeHandleEvent('dynamic cutoff', config['Start'], 'out', [0], config['Dynamic'], 'EndTrial', 1, 2))
+            hes.append(makeHandleEvent('dynamic cutoff', config['Start'], 'out', [1], config['Dynamic'], 'EndTrial', 2, -2))
+        else:
+            hes.append(makeHandleEvent('dynamic cutoff', config['Start'], 'out', [0], config['Dynamic'], 'EndTrial', 1, -2))
+            hes.append(makeHandleEvent('dynamic cutoff', config['Start'], 'out', [1], config['Dynamic'], 'EndTrial', 2, 2))
+
         hes.append(makeHandleEvent('time limit', 600, etype='EndTrial'))
 
         houts.append(makeHandleEvent('decisions', config['Start'], 'out', [], config['Dynamic'], 'EndTrial'))
         houts.append(makeHandleEvent('decisions', 600, etype='EndTrial'))
 
     # timelimit = 1800
-    timelimit = 1200
+    # timelimit = 1200
 
     return (dims, hts, hes, houts)
 
