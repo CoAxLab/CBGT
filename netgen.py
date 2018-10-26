@@ -440,6 +440,7 @@ def compileAndRunSweepALL(trials=1, offset=0, sweepcount=1):
                 Popen('./sim -ns -n{} -s{}'.format(str(trial+offset), str(seed+trial+offset)), shell=True, cwd=outdir)
 
 def getCellDefaults():
+
     return {'N': 250,
             'C': 0.5,
             'Taum': 20,
@@ -526,6 +527,7 @@ def describeBG(**kwargs):
     camP(c, 'Th', 'FSI', 'AMPA', ['all'], 0.25, config['ThSTR'])
     camP(c, 'Th', 'LIP', 'NMDA', ['all'], 0.25, config['ThCx'], name='thcx')
     camP(c, 'Th', 'LIPI', 'NMDA', ['all'], 0.25, config['ThCx'], name='thcxi')
+
     action_channel = makeChannel('choices', [GPi, STNE, GPeP, D1STR, D2STR, LIP, Th])
 
     ineuronPops = [FSI]
@@ -996,7 +998,6 @@ def readTrialResult(sweepnumber, trial):
 
     g = open(directory + '/network.pickle', 'rb')
     trialdata = pickle.load(g)
-
     trialdata['popfreqs'] = pd.DataFrame(labeled)
 
     return(trialdata)
