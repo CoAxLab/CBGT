@@ -1544,9 +1544,9 @@ int SimulateOneTimeStep() {
         tr = Pop[p].Cell[sourceneuron].Axonals[j].TargetReceptor;
         // dopaminergic learning equation 1
         dpmn_eff = Pop[p].Cell[sourceneuron].Axonals[j].Efficacy;
-        if (Pop[tp].Cell[tn].dpmn_type && tr != GABA) {
+        /*if (Pop[tp].Cell[tn].dpmn_type && tr != GABA) {
           dpmn_eff *= Pop[tp].Cell[tn].dpmn_w / 0.015; // adjust scale of weight
-        }
+        }*/
         if (Pop[p].Cell[sourceneuron].Axonals[j].LastConductance <
             0.) {  // NO NMDA (no saturation)
           Pop[tp].Cell[tn].LS[tr] += D * F * dpmn_eff;  // no saturation
@@ -1569,6 +1569,9 @@ int SimulateOneTimeStep() {
               ALPHA *
               (1. - Pop[p].Cell[sourceneuron].Axonals[j].LastConductance);
         }
+        if (Pop[tp].Cell[tn].dpmn_type && tr == NMDA) {
+          Pop[tp].Cell[tn].LS[tr] = ((Pop[tp].Cell[tn].LS[tr] + Pop[tp].Cell[tn].dpmn_w))*D*F;
+        }
         // Calculate the change of D and F due to the spike.
         Pop[p].Cell[sourceneuron].Axonals[j].F +=
             Pop[p].Cell[sourceneuron].Axonals[j].Fp *
@@ -1578,7 +1581,7 @@ int SimulateOneTimeStep() {
             Pop[p].Cell[sourceneuron].Axonals[j].D;
 
         // dopaminergic learning
-        if (tr != GABA) {
+        if (tr == NMDA) {
           Pop[tp].Cell[tn].dpmn_XPRE = 1; // presynaptic from perspective of target neuron
         }
       }  // for j
@@ -1783,8 +1786,13 @@ int SimulateOneTimeStep() {
             Pop[p].Cell[i].dpmn_m -= dt * Pop[p].Cell[i].dpmn_m / Pop[p].Cell[i].dpmn_taum;
           }
           // equation 4
-          fDA = Pop[p].Cell[i].dpmn_a * pow(DA - Pop[p].Cell[i].dpmn_c, 3)
-                / (Pop[p].Cell[i].dpmn_b + pow(abs(DA - Pop[p].Cell[i].dpmn_c), 3));
+          /* fDA = Pop[p].Cell[i].dpmn_a * pow(DA - Pop[p].Cell[i].dpmn_c, 3)
+                / (Pop[p].Cell[i].dpmn_b + pow(abs(DA - Pop[p].Cell[i].dpmn_c), 3)); */
+          if (PopD[p].dpmn_type == 1) {
+            fDA = DA;
+            } else {
+            fDA = DA/(2.5+abs(DA));
+          }
           Pop[p].Cell[i].dpmn_w += dt * (Pop[p].Cell[i].dpmn_wmax - Pop[p].Cell[i].dpmn_w)
                                 * Pop[p].Cell[i].dpmn_alphaw * fDA * Pop[p].Cell[i].dpmn_E;
         }
