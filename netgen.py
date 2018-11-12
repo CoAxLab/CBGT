@@ -490,27 +490,27 @@ def getCellDefaults():
 def getD1CellDefaults():
     return {
                 # not specific
-                'dpmn_tauDOP':2.0*10,
+                'dpmn_tauDOP':2.0*5,         #2.0*10,
                  #'dpmn_taug':3.0,
                 'dpmn_alpha':0.05,
-                'dpmn_DAt':0.2,
+                'dpmn_DAt':0.0,              #0.2,
                 'dpmn_taum':4000.0*5,
                 # specific to D1
                 'dpmn_type': 1,
-                'dpmn_alphaw': 0.00080,
-                'dpmn_dPRE': 10,
-                'dpmn_dPOST':6,
-                'dpmn_tauE':3*3,
-                'dpmn_tauPRE':9*3,
-                'dpmn_tauPOST':1.2*3,
+                'dpmn_alphaw': 8.0,          #0.00080,
+                'dpmn_dPRE': 1,              #10,
+                'dpmn_dPOST':0.87,           #6,
+                'dpmn_tauE':3*9,             #3*3,
+                'dpmn_tauPRE':9*5,           #9*3,
+                'dpmn_tauPOST':1.2*5,        #1.2*3,
                 'dpmn_wmax':0.13,
                 'dpmn_a':1.0,
                 'dpmn_b':0.1,
                 'dpmn_c':0.05,
                 # explicit initial conditions
                 'dpmn_w':0.015,
-                'dpmn_Q1':0.5,
-                'dpmn_Q2':0.5,
+                'dpmn_Q1':0.0,                #0.5,
+                'dpmn_Q2':0.0,                #0.5,
                 # implicit initial conditions
                 'dpmn_m': 1.0,
                 'dpmn_E': 0.0,
@@ -523,27 +523,27 @@ def getD1CellDefaults():
 def getD2CellDefaults():
     return {
                 # not specific
-                'dpmn_tauDOP':2.0*10,
+                'dpmn_tauDOP':2.0*5,          #2.0*10,
                  #'dpmn_taug':3.0,
                 'dpmn_alpha':0.05,
-                'dpmn_DAt':0.25,
-                'dpmn_taum':4000.0*5,
+                'dpmn_DAt':0,               #0.25,
+                'dpmn_taum':4000.0*5,         #4000.0*5,
                 # specific to D1
                 'dpmn_type': 2,
-                'dpmn_alphaw': -0.00055,
-                'dpmn_dPRE': 10,
-                'dpmn_dPOST':6,
-                'dpmn_tauE':3*3,
-                'dpmn_tauPRE':9*3,
-                'dpmn_tauPOST':1.2*3,
+                'dpmn_alphaw': -5.5, #-0.00055,
+                'dpmn_dPRE': 1,         #10,
+                'dpmn_dPOST': 0.87,      #6
+                'dpmn_tauE':3*9,              #3*3,
+                'dpmn_tauPRE':9*5,            #9*3,
+                'dpmn_tauPOST':1.2*5,         #1.2*3,
                 'dpmn_wmax':0.03,
                 'dpmn_a':0.5,
                 'dpmn_b':0.005,
                 'dpmn_c':0.05,
                 # explicit initial conditions
-                'dpmn_w':0.015,
-                'dpmn_Q1':0.5,
-                'dpmn_Q2':0.5,
+                'dpmn_w':0.018,             #0.015,
+                'dpmn_Q1':0.0,                #0.5,
+                'dpmn_Q2':0.0,                #0.5,
                 # implicit initial conditions
                 'dpmn_m': 1.0,
                 'dpmn_E': 0.0,
@@ -669,8 +669,8 @@ def mcInfo(**kwargs):
         hes.append(makeHandleEvent('right stimulus', config['Start'], 'sensory', [0], config['RightStim']+0.0025*(i%2)))
         hes.append(makeHandleEvent('hyperdirect', config['Start'], 'threshold', [], config['STNExtFreq']+.75))
         hes.append(makeHandleEvent('hyperdirect', config['Start'], 'threshold', [0], config['STNExtFreq']+.75))
-        hes.append(makeHandleEvent('dynamic cutoff', config['Start'], 'out', [0], config['Dynamic'], 'EndTrial', 1, 1))
-        hes.append(makeHandleEvent('dynamic cutoff', config['Start'], 'out', [1], config['Dynamic'], 'EndTrial', 2, 0))
+        hes.append(makeHandleEvent('dynamic cutoff', config['Start'], 'out', [0], config['Dynamic'], 'EndTrial', 1, 0.7)) #Left reward 0.7
+        hes.append(makeHandleEvent('dynamic cutoff', config['Start'], 'out', [1], config['Dynamic'], 'EndTrial', 2, 0.1)) #Right reward 0.1
         hes.append(makeHandleEvent('time limit', 600, etype='EndTrial'))
 
         houts.append(makeHandleEvent('decisions', config['Start'], 'out', [], config['Dynamic'], 'EndTrial'))
