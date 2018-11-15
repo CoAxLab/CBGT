@@ -222,6 +222,7 @@ typedef struct {
 
   // dopaminergic learning
   int dpmn_type;      // 0 = none, 1 = D1, 2 = D2
+  int dpmn_cortex;    // 0 = not cortex, 1 = cortex
   float dpmn_alphaw;  // for weight
   float dpmn_dPRE;
   float dpmn_dPOST;
@@ -358,6 +359,7 @@ typedef struct {
 
   // dopaminergic learning
   int dpmn_type; // 0 = none, 1 = D1, 2 = D2
+  int dpmn_cortex;    // 0 = not cortex, 1 = cortex
   float dpmn_alphaw;
   float dpmn_dPRE;
   float dpmn_dPOST;
@@ -689,6 +691,13 @@ int DescribeNetwork() {
       if (strncmp(s, "dpmn_type=", 10) == 0) {
         PopD[currentpop].dpmn_type = atoi(s + 10);
         report("  dpmn_type=%d\n", PopD[currentpop].dpmn_type);
+        continue;
+      }
+	  
+	  //int dpmn_cortex;    // 0 = not cortex, 1 = cortex
+	  if (strncmp(s, "dpmn_cortex=", 12) == 0) {
+        PopD[currentpop].dpmn_cortex = atoi(s + 12);
+        report("  dpmn_cortex=%d\n", PopD[currentpop].dpmn_cortex);
         continue;
       }
 
@@ -1184,6 +1193,7 @@ int GenerateNetwork() {
 
       // single neuron parameters -- dopaminergic learning
       Pop[p].Cell[i].dpmn_type = PopD[p].dpmn_type;
+      Pop[p].Cell[i].dpmn_cortex = PopD[p].dpmn_cortex;
       Pop[p].Cell[i].dpmn_alphaw = PopD[p].dpmn_alphaw;
       Pop[p].Cell[i].dpmn_dPRE = PopD[p].dpmn_dPRE;
       Pop[p].Cell[i].dpmn_dPOST = PopD[p].dpmn_dPOST;
@@ -1569,7 +1579,7 @@ int SimulateOneTimeStep() {
               ALPHA *
               (1. - Pop[p].Cell[sourceneuron].Axonals[j].LastConductance);
         }
-        if (Pop[tp].Cell[tn].dpmn_type && tr == NMDA) {
+        if (Pop[p].Cell[sourceneuron].dpmn_cortex && Pop[tp].Cell[tn].dpmn_type && tr == AMPA) {
           Pop[tp].Cell[tn].LS[tr] = ((Pop[tp].Cell[tn].LS[tr] + Pop[tp].Cell[tn].dpmn_w))*D*F;
         }
         // Calculate the change of D and F due to the spike.
@@ -1581,7 +1591,7 @@ int SimulateOneTimeStep() {
             Pop[p].Cell[sourceneuron].Axonals[j].D;
 
         // dopaminergic learning
-        if (tr == NMDA) {
+        if (Pop[p].Cell[sourceneuron].dpmn_cortex && tr == AMPA) {
           Pop[tp].Cell[tn].dpmn_XPRE = 1; // presynaptic from perspective of target neuron
         }
       }  // for j
