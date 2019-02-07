@@ -15,7 +15,7 @@ cbgt_packages = ['cbgt', 'cbgt.src']
 
 setup(
     name='CBGT',
-    version='0.0.4',
+    version='0.0.5',
     author='Kyle Dunovan, Catalina Vich, Matthew Clapp, Timothy Verstynen, Jonathan Rubin, Wei Wei, and Xiao Jing Wang',
     author_email='dunovank@gmail.com',
     url='http://github.com/CoAxLab/bgNetwork',
@@ -26,6 +26,7 @@ setup(
     setup_requires=['numpy==1.11.3', 'pandas>=0.15.1', 'matplotlib>=1.4.3', 'seaborn>=0.5.1', 'future'],
     include_dirs = [np.get_include()],
     classifiers=['Environment :: Console',
+                'Operating System :: OS Independent',
                 'License :: OSI Approved :: BSD License',
                 'Intended Audience :: Science/Research',
                 'Development Status :: 3 - Alpha',
