@@ -379,14 +379,17 @@ def writePickle(trialdata):
 
 
 
-def compileAndRun(trials=1, offset=0, sweepnumber=0):
+def compileAndRun(trials=1, offset=0, sweepnumber=0, parallel=4):
+
     if sys.platform == "linux" or sys.platform == "linux2":
         compiler = 'gcc'
     elif sys.platform == "darwin":
         compiler = 'gcc-8'
 
+    c_dir = os.path.join(_package_dir, 'cbgt')
+
     simfile = os.path.join(getDirectory(sweepnumber), 'sim')
-    call('{} -o {} BG_inh_pathway_spedup.c rando2.h -lm -std=c99'.format(compiler, simfile), shell=True, cwd=_package_dir)
+    call('{} -o {} cbgt.c rando2.h -lm -std=c99'.format(compiler, simfile), shell=True, cwd=c_dir)
 
     seed = np.random.randint(0, 1000)
     for trial in range(0, trials):
@@ -396,28 +399,24 @@ def compileAndRun(trials=1, offset=0, sweepnumber=0):
 
 
 
-def compileAndRunSweep(trials=1, offset=0, sweepcount=1):
-    parallel = 0
+def compileAndRunSweep(trials=1, offset=0, sweepcount=1, parallel=4):
+
     if sys.platform == "linux" or sys.platform == "linux2":
         compiler = 'gcc'
         # number of clients for multiprocess
-        parallel = 8
     elif sys.platform == "darwin":
         compiler = 'gcc-8'
-        parallel = 8
 
+    c_dir = os.path.join(_package_dir, 'cbgt')
     # seed = np.random.randint(0, 1000)
-
     for sweepnumber in range(0, sweepcount):
         simfile = os.path.join(getDirectory(sweepnumber), 'sim')
-        call('{} -o {} BG_inh_pathway_spedup.c rando2.h -lm -std=c99'.format(compiler, simfile), shell=True, cwd=_package_dir)
+        call('{} -o {} cbgt.c rando2.h -lm -std=c99'.format(compiler, simfile), shell=True, cwd=c_dir)
 
     for trial in range(0, trials):
-
         for sweepnumber in range(0, sweepcount):
             outdir = getDirectory(sweepnumber)
             seed = np.random.randint(0, 1000)
-
             if (trial * sweepcount + sweepnumber + 1) % parallel == 0:
                 call('./sim -ns -n{} -s{}'.format(str(trial+offset), str(seed+trial+offset)), shell=True, cwd=outdir)
             else:
@@ -425,19 +424,19 @@ def compileAndRunSweep(trials=1, offset=0, sweepcount=1):
 
 
 
-def compileAndRunSweepALL(trials=1, offset=0, sweepcount=1):
-    parallel = 0
+def compileAndRunSweepALL(trials=1, offset=0, sweepcount=1, parallel=4):
+
     if sys.platform == "linux" or sys.platform == "linux2":
         compiler = 'gcc'
         # number of clients for multiprocess
-        parallel = 8
     elif sys.platform == "darwin":
         compiler = 'gcc-8'
-        parallel = 8
+
+    c_dir = os.path.join(_package_dir, 'cbgt')
 
     for sweepnumber in range(0, sweepcount):
         simfile = os.path.join(getDirectory(sweepnumber), 'sim')
-        call('{} -o {} BG_inh_pathway_spedup.c rando2.h -lm -std=c99'.format(compiler, simfile), shell=True, cwd=_package_dir)
+        call('{} -o {} cbgt.c rando2.h -lm -std=c99'.format(compiler, simfile), shell=True, cwd=c_dir)
 
     for sweepnumber in range(0, sweepcount):
         for trial in range(0, trials):
