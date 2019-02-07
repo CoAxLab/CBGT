@@ -1,8 +1,6 @@
 # bgNetwork
----
+
 **bgNetwork** is a spiking neural network model of cortico-basal ganglia circuitry, written in Python3 and C.
-
-
 
 This repository contains code for implementing the cortico-basal ganglia-thalamus (CBGT) network and drift-diffusion model fits described in the manuscript [**Reward-driven changes in striatal pathway competition shape evidence evaluation in decision-making**](https://www.biorxiv.org/content/10.1101/418756v2.abstract). 
 
@@ -43,9 +41,7 @@ pip install --upgrade kabuki hddm
 pip install numpy==1.11.3
 ```
 
-
-
-After installing everything, run the line below to open up Jupyter in your browser, then drag/drop the demo notebook (`CBGT_PLOSCompBio2019_Demo.ipynb`) into the Jupyter browser window (see [**this tutorial**](https://medium.com/codingthesmartway-com-blog/getting-started-with-jupyter-notebook-for-python-4e7082bd5d46) if you're new to Jupyter)
+* After installing everything, run the line below to open up Jupyter in your browser, then drag/drop the demo notebook (`CBGT_PLOSCompBio2019_Demo.ipynb`) into the Jupyter browser window (see [**this tutorial**](https://medium.com/codingthesmartway-com-blog/getting-started-with-jupyter-notebook-for-python-4e7082bd5d46) if you're new to Jupyter)
 
 ```sh
 # make sure you've activated the py36 env first
