@@ -1,6 +1,6 @@
 # bgNetwork
 
-This repository contains code for implementing the CBGT network and drift-diffusion model (DDM) fits described in the manuscript [**Reward-driven changes in striatal pathway competition shape evidence evaluation in decision-making**](https://www.biorxiv.org/content/10.1101/418756v2.abstract). 
+This repository contains code for implementing the spiking cortico-basal ganglia-thalamus (CBGT) network and drift-diffusion model (DDM) fits described in the manuscript [**Reward-driven changes in striatal pathway competition shape evidence evaluation in decision-making**](https://www.biorxiv.org/content/10.1101/418756v2.abstract). 
 
 The code requires several dependencies to be installed (see below for instructions). After completing the installation procedure below, the demo notebook can be downloaded and opened inside Jupyter.
 

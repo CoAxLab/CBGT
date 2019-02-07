@@ -1,0 +1,5 @@
+numpy==1.11.3
+pandas>=0.15.1
+matplotlib>=1.4.3
+seaborn>=0.5.1
+future
