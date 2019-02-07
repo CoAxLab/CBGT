@@ -4,9 +4,8 @@ import numpy as np
 
 # UPDATE PYPI RELEASE (Version Update)
 # pip install --upgrade setuptools wheel twine
-# python setup.py sdist bdist_wheel; twine upload dist/cbgt-0.0.1*
 
-# git commit -am "fixed imports, bump version patch"; git push origin master; python setup.py sdist bdist_wheel; twine upload dist/CBGT-0.0.3*
+# git commit -am "update demo, bump version patch"; git push origin master; python setup.py sdist bdist_wheel; twine upload dist/CBGT-0.0.6*
 
 ext_modules = [Extension('cbgt', ['src/cbgt.c'])]
 package_data = {'cbgt': ['src/*.c', 'src/*.h', 'docs/*.md',
@@ -15,7 +14,7 @@ cbgt_packages = ['cbgt', 'cbgt.src']
 
 setup(
     name='CBGT',
-    version='0.0.5',
+    version='0.0.6',
     author='Kyle Dunovan, Catalina Vich, Matthew Clapp, Timothy Verstynen, Jonathan Rubin, Wei Wei, and Xiao Jing Wang',
     author_email='dunovank@gmail.com',
     url='http://github.com/CoAxLab/CBGT',
