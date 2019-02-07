@@ -7,14 +7,8 @@ __all__ = [ os.path.basename(f)[:-3] for f in modules]
 _package_dir = os.path.dirname(os.path.realpath(__file__))
 
 
-__version__ = '0.0.3'
-#
-# from . import netgen
-# from . import analyzefx
-# from . import sim
-# from . import vis
-
-try:
-    import cbgt
-except ImportError:
-    pass
+__version__ = '0.0.4'
+# try:
+#     import cbgt
+# except ImportError:
+#     pass

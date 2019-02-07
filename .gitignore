@@ -53,7 +53,12 @@ build/
 
 # cached python folder #
 ########################
-#__pycache__/
+__pycache__/
+
+# Temporary Files #
+###################
+.ipynb_checkpoints/
+*.pyc
 
 # Setuptools distribution folder #
 ##################################

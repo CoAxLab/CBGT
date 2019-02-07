@@ -15,7 +15,7 @@ cbgt_packages = ['cbgt', 'cbgt.src']
 
 setup(
     name='CBGT',
-    version='0.0.3',
+    version='0.0.4',
     author='Kyle Dunovan, Catalina Vich, Matthew Clapp, Timothy Verstynen, Jonathan Rubin, Wei Wei, and Xiao Jing Wang',
     author_email='dunovank@gmail.com',
     url='http://github.com/CoAxLab/bgNetwork',
