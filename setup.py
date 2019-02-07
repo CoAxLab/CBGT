@@ -18,7 +18,7 @@ setup(
     version='0.0.5',
     author='Kyle Dunovan, Catalina Vich, Matthew Clapp, Timothy Verstynen, Jonathan Rubin, Wei Wei, and Xiao Jing Wang',
     author_email='dunovank@gmail.com',
-    url='http://github.com/CoAxLab/bgNetwork',
+    url='http://github.com/CoAxLab/CBGT',
     packages=cbgt_packages,
     package_data=package_data,
     description='CBGT contains code for implementing the CBGT network and drift-diffusion model (DDM) fits described in the manuscript Reward-driven changes in striatal pathway competition shape evidence evaluation in decision-making.',
