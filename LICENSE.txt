@@ -1,4 +1,4 @@
-Copyright (c) 2019, Kyle Dunovan, Timothy Verstynen, Catalina Vich, Jonathan Rubin
+Copyright (c) 2019, Kyle Dunovan, Matthew Clapp, Timothy Verstynen, Jonathan Rubin, Catalina Vich
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
