@@ -10,30 +10,23 @@ The code requires several dependencies to be installed (see below for instructio
 
 
 
-#### Dependencies
+#### Requirements
 
 - OSX or Linux
-- Python 3.* (see below for installing with anaconda)
+- Anaconda with Python 3.* (for [**OSX**](https://www.anaconda.com/download/#macos), [**Linux**](https://www.anaconda.com/download/#linux))
 
 - `gcc` (if Linux) or `gcc-8` (if OSX, see [**here**](https://solarianprogrammer.com/2017/05/21/compiling-gcc-macos/))
 
 
 
-#### Install Anaconda w/ Python 3.*
-
-- [**For OSX**](https://www.anaconda.com/download/#macos)
-- [**For Linux**](https://www.anaconda.com/download/#linux)
-
-
-
-#### Additional installation steps
+#### Installation Instructions
 
 ```sh
 # create a new conda environment with python 3.6
 # and hit 'y' to verify the install 
 conda create -n py36 python=3.6 anaconda
 
-# activate 'cbgt' environment
+# activate 'py36' environment
 source activate py36
 
 # use conda (not pip) to install pymc
@@ -49,6 +42,8 @@ pip install --upgrade kabuki hddm
 # (avoids hddm incompatibility with later numpy)
 pip install numpy==1.11.3
 ```
+
+
 
 After installing everything, run the line below to open up Jupyter in your browser, then drag/drop the demo notebook (`CBGT_PLOSCompBio2019_Demo.ipynb`) into the Jupyter browser window (see [**this tutorial**](https://medium.com/codingthesmartway-com-blog/getting-started-with-jupyter-notebook-for-python-4e7082bd5d46) if you're new to Jupyter)
 
