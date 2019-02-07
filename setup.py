@@ -6,6 +6,8 @@ import numpy as np
 # pip install --upgrade setuptools wheel twine
 # python setup.py sdist bdist_wheel; twine upload dist/cbgt-0.0.1*
 
+# git commit -am "fixed imports, bump version patch"; git push origin master; python setup.py sdist bdist_wheel; twine upload dist/CBGT-0.0.3*
+
 ext_modules = [Extension('cbgt', ['src/cbgt.c'])]
 package_data = {'cbgt': ['src/*.c', 'src/*.h', 'docs/*.md',
                 'docs/*.txt', 'params/*.py', 'params/*.tex']}
@@ -13,7 +15,7 @@ cbgt_packages = ['cbgt', 'cbgt.src']
 
 setup(
     name='CBGT',
-    version='0.0.2',
+    version='0.0.3',
     author='Kyle Dunovan, Catalina Vich, Matthew Clapp, Timothy Verstynen, Jonathan Rubin, Wei Wei, and Xiao Jing Wang',
     author_email='dunovank@gmail.com',
     url='http://github.com/CoAxLab/bgNetwork',
