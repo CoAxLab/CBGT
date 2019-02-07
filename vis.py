@@ -49,15 +49,10 @@ def plot_behavior(empdata, simdata, labels=['low', 'med', 'high'], simclrs=['#28
     plt.tight_layout()
 
 
-def plot_mean_acc_rt(df, conds=['low', 'med', 'high'], subject_mean=False):
+def plot_mean_acc_rt(df, conds=['low', 'med', 'high'], subject_mean=False, clrs=['#347fff', '#00bac7', '#febe08'], eclrs=['#1657de', '#009c82', '#f5a005']):
 
-
-    clrs = ['#febe08', '#00bac7', '#347fff'][::-1]
-    #eclrs = ['#eb9632', '#00928c', '#143773'][::-1]
-    eclrs = ['#f5a005', '#009c82', '#1657de'][::-1]
     pal = sns.color_palette(eclrs)
-
-    f, (ax1, ax2) = plt.subplots(1, 2, figsize=(10,5))#4.85))
+    f, (ax1, ax2) = plt.subplots(1, 2, figsize=(10,5))
     if subject_mean:
         dfacc = df.groupby(['subj_idx', 'level']).mean().reset_index()
         dfRT = df[df.acc==1].groupby(['subj_idx', 'level']).mean().reset_index()
@@ -65,29 +60,17 @@ def plot_mean_acc_rt(df, conds=['low', 'med', 'high'], subject_mean=False):
         dfacc = df.copy()
         dfRT = df[df.acc==1].copy()
 
-    #if 'trial' in df.columns:
-    #    dfacc = df[df.trial>150]
-    #else:
-    #    dfacc = df.copy()
-    #ax1 = sns.pointplot(x='level', y='acc', data=dfacc, palette=pal, order=[1,2,3], scale=1.65, errwidth=3, ax=ax1, ci=95)
-    #ax2 = sns.pointplot(x='level', y='rtms', data=dfRT, palette=pal, order=[1,2,3], scale=1.65, errwidth=3, ax=ax2, ci=95)
-
-    x = [0,1,2]
+    x = np.arange(len(conds))
 
     yacc = dfacc.groupby('level').mean()['acc'].values
     yrt =  dfRT.groupby('level').mean()['rtms'].values
     yaccERR = dfacc.groupby('level').sem()['acc'].values*1.96
     yrtERR =  df[df.acc==1].groupby('level').sem()['rtms'].values*1.96
-    # else:
-    #     yacc = dfacc.groupby('level').mean()['acc'].values
-    #     yrt =  dfRT.groupby('level').mean()['rtms'].values
 
     ax1.plot(x, yacc, linewidth=4, alpha=.25, color='k')
     ax2.plot(x, yrt, linewidth=4, alpha=.25, color='k')
 
-    for i in range(3):
-        # ax1.plot([i], [yacc[i]], color=clrs[i], marker='o', linewidth=0, mfc=clrs[i], mew=2, mec=eclrs[i], ms=12)
-        # ax2.plot([i], [yrt[i]],  color=clrs[i], marker='o', linewidth=0, mfc=clrs[i], mew=2, mec=eclrs[i], ms=12)
+    for i in range(len(conds)):
         ax1.errorbar([i], [yacc[i]], yerr=[yaccERR[i]], color=clrs[i], marker='o', linewidth=0, elinewidth=3, mfc=clrs[i], mew=2, mec=eclrs[i], ms=12)
         ax2.errorbar([i], [yrt[i]], yerr=[yrtERR[i]], color=clrs[i], marker='o', linewidth=0, elinewidth=3, mfc=clrs[i], mew=2, mec=eclrs[i], ms=12)
 
@@ -95,11 +78,10 @@ def plot_mean_acc_rt(df, conds=['low', 'med', 'high'], subject_mean=False):
         ax.set_xticks(range(len(conds)))
         ax.set_xticklabels([c.capitalize() for c in conds])
         ax.set_xlabel('P(rew | Left)')
+        ax.set_xlim(x[0]-.25, x[1]+.25)
         sns.despine(ax=ax)
 
     ax1.set_ylim(.4, 1.025)
-    #ax2.set_ylim(440, 500)
-    #ax2.set_yticks(np.arange(440,520,20))
     ax1.set_yticks([.4, .6, .8, 1.])
     ax1.set_yticklabels([.4, .6, .8, 1.])
     ax1.set_ylabel('Accuracy')
@@ -161,21 +143,15 @@ def plot_stim_dist(mu=2.49, sd=.025, clip=None, ntrials=1000, bins=25):
     return stimArray
 
 
-def plot_average_msn_rates(ys, ysErr, bdf, ntime=500, ymax=50, lw=2, plotRT=False, plotRTerr=False, outdir=None):
+def plot_average_msn_rates(ys, ysErr, bdf, ntime=500,  savedir=None, conds=['low', 'med', 'high'], clrs=['#347fff', '#00bac7', '#febe08'], eclrs=['#1657de', '#009c82', '#f5a005'], ymax=50, lw=2, plotRT=True, plotRTerr=False, outdir=None):
 
-    f, axes = plt.subplots(2, 3, figsize=(10, 6), sharey=True, sharex=True)
-    axes = np.asarray(axes).reshape(2,3)
+    nconds = len(conds)
+    f, axes = plt.subplots(2, nconds, figsize=(nconds*3+2, 6), sharey=True, sharex=True)
+    axes = np.asarray(axes).reshape(2,nconds)
+
+    titles = [c.capitalize() for c in conds]
     lrclrs=['#1e1e1e', '#f5191c']
-    titles = ['Low', 'Med', 'High']
     lrEclrs = ['#b0b0b0', '#f9aeb0']
-    clrs = ['#feb408', '#00bac7', '#3b73d4'][::-1]
-    eclrs = ['#eb9632', '#00928c', '#143773'][::-1]
-    eclrs = ['#eb9632', '#009c96', '#143773'][::-1]
-
-    clrs = ['#febe08', '#00bac7', '#347fff'][::-1]
-    eclrs = ['#f5a005', '#009c82', '#1657de'][::-1]
-    pal = sns.color_palette(eclrs)
-
 
     pal = sns.color_palette(clrs)
 
@@ -184,7 +160,7 @@ def plot_average_msn_rates(ys, ysErr, bdf, ntime=500, ymax=50, lw=2, plotRT=Fals
     condRTs =  dfRT.groupby('level').mean()['rtms'].values
     rtErrs = dfRT.groupby('level').std()['rtms'].values
 
-    for i in range(3):
+    for i in range(nconds):
         lbl0, lbl1 = None, None
         rt = condRTs[i]
         xmax = ntime
@@ -303,7 +279,7 @@ def plot_trial_rates(t=0, cond='test', window=None):
     if plotspikes:
         ratedf = results[t]['popfreqs']
         frdf2 = get_firing_rates(results, window=window, cond=cond)
-        ratedfT = get_single_trial_ratedf(frdf2)
+        ratedfT = get_single_trial_ratedf(frdf2, trial=t)
         titles=['Cortex', 'dMSN', 'iMSN', 'FSI', 'GPe',  'STN', 'GPi', 'Thalamus']
         yranges = [(0,25), (0,50), (0,50), (0,30), (0, 125), (0,70), (0, 125), (0, 30)]
         xmax = np.around(ratedf.index.values[-1], 1)
@@ -320,11 +296,11 @@ def plot_trial_rates(t=0, cond='test', window=None):
         plt.tight_layout()
 
 
-def plot_striatal_regressors(df, regressors=None, lbls=None, msn_type='d', subject_mean=False, savedir=None):
-    conds = ['low', 'med', 'high']
-    clrs = ['#347fff', '#00bac7', '#febe08']
-    eclrs = ['#1657de', '#009c82', '#f5a005']
-    eclrsx = ['#143773', '#00746e', '#d78214']
+def plot_striatal_regressors(df, regressors=None, lbls=None, msn_type='d', subject_mean=False, savedir=None, conds=['low', 'med', 'high'], clrs=['#347fff', '#00bac7', '#febe08'], eclrs=['#1657de', '#009c82', '#f5a005']):
+
+    #clrs = ['#347fff', '#00bac7', '#febe08']
+    #eclrs = ['#1657de', '#009c82', '#f5a005']
+    #eclrsx = ['#143773', '#00746e', '#d78214']
 
     if regressors is None:
         if msn_type=='i':
@@ -347,15 +323,18 @@ def plot_striatal_regressors(df, regressors=None, lbls=None, msn_type='d', subje
 
     y1,y2 = y.T
     yerr1, yerr2 = yerr.T
-
-    plt.bar([-.25, 1.75, 3.75], y1, width=.5, align='center', color=clrs, yerr=yerr1, label=lbls[0], error_kw={'elinewidth':2, 'ecolor':eclrs}, alpha=.65)
-    plt.bar([.25, 2.25, 4.25], y2, width=.5, align='center', color=eclrs, yerr=yerr2, label=lbls[1], error_kw={'elinewidth':2, 'ecolor':eclrsx}, alpha=.85)
-    ax = plt.gca(); ax.set_xticks([0,2,4])
+    x1 = np.arange(0,len(conds))*2-.25
+    x2 = np.arange(0,len(conds))*2+.25
+    #[-.25, 1.75, 3.75]
+    #[.25, 2.25, 4.25],
+    plt.bar(x1, y1, width=.5, align='center', color=clrs, yerr=yerr1, label=lbls[0], error_kw={'elinewidth':2, 'ecolor':eclrs}, alpha=.65)
+    plt.bar(x2, y2, width=.5, align='center', color=eclrs, yerr=yerr2, label=lbls[1], error_kw={'elinewidth':2, 'ecolor':eclrs}, alpha=.85)
+    ax = plt.gca(); ax.set_xticks(x1+.25)
     ax.set_xticklabels([c.capitalize() for c in conds])
     ax.set_ylabel('$\sum_{t=0}^{RT} X(t)$')
     ax.set_xlabel('P(rew | Left)')
-    ax.set_ylim(.2,.8);
-    ax.set_yticks(np.arange(.2,1.0,.2))
+    ax.set_ylim(0.,1.);
+    ax.set_yticks(np.arange(0.,1.2,.2))
 
     if lbls[0]:
         ax.legend(loc=2)
@@ -373,7 +352,7 @@ def save_and_plot(results, behavdf, cond='bal', idx=1, savedir='~/cbgt', window=
 
     if trials[0] is not None:
         for t in trials:
-            dftrial = get_single_trial_ratedf(spikedf, t+1)
+            dftrial = get_single_trial_ratedf(spikedf, t)
             ftrial = plot_spikes(dftrial, start=Start)
             fname = 'rates_{}_trial{}.png'.format(cond, str(t))
             ftrial.savefig(os.path.join(savedir, fname), dpi=500)

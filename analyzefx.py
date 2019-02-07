@@ -42,11 +42,16 @@ def get_msn_rates(sdf):
     return [dlx, drx, ilx, irx]
 
 def get_avgMSN_traces(msnDFs, window=None):
-    rolltime = lambda df, w: df.rolling(w, axis=1).mean()
-    getMean = lambda df: df.groupby('cond2').mean().ix[:, 200:].values
-    getErr = lambda df: df.groupby('cond2').std().ix[:, 200:].values / 1.4
+
+    #rolltime = lambda df, w: df.rolling(w, axis=1).mean()
+    rolltime = lambda df, w: df.ix[:, 200:].rolling(w, axis=1).mean().iloc[:, w:]
+    getMean = lambda df: df.groupby('cond2').mean().ix[:, 205:].values
+    getErr = lambda df: df.groupby('cond2').std().ix[:, 205:].values / 1.4
     if window is not None:
-        msnDFs = [rolltime(msnPop, window) for msnPop in msnDFs]
+        for i, msndf in enumerate(msnDFs):
+            msndf.ix[:, 200+window:] = rolltime(msndf, window)
+            msnDFs[i] = msndf
+            #msnDFs = [rolltime(msnPop, window) for msnPop in msnDFs]
     ys = [getMean(msnPop) for msnPop in msnDFs]
     ysErr = [getErr(msnPop) for msnPop in msnDFs]
     return ys, ysErr
@@ -81,7 +86,7 @@ def get_firing_rates(results, window=None, getavg=False, cond='test', idx=1):
     sdf.insert(1, 'cond2', condABC[cond])
     sdf.insert(1, 'cond', cond)
     sdf.insert(1, 'idx', idx)
-    sdf['trial'] = sdf.trial.values + 1
+    sdf['trial'] = sdf.trial.values #+ 1
 
     if getavg:
         return get_mean_firing_rates(sdf)
@@ -110,7 +115,7 @@ def analyze_network_behavior(results, preset, stimArray, cond='test', outdir=Non
     behavdf = pd.DataFrame(dict(zip(['choice', 'acc', 'rtms'], behav_arr)))
     behavdf['rtms'] = behavdf.rtms.values + 200
     behavdf['rt'] = behavdf.rtms.values * .001
-    behavdf.insert(0, 'trial', np.arange(1, behavdf.shape[0]+1))
+    behavdf.insert(0, 'trial', np.arange(behavdf.shape[0]))
     behavdf.insert(0, 'response', behavdf.acc.values)
     behavdf.insert(0, 'cond', cond)
     behavdf.insert(0, 'stim', stimArray[:behavdf.shape[0]])
@@ -178,9 +183,7 @@ def rename_populations(sdf):
     return sdfNew
 
 
-def get_cbgt_covariates(df, msndf):
-
-    conds = ['low', 'med', 'high']
+def get_cbgt_covariates(df, msndf, conds=['low', 'med', 'high']):
 
     if np.any(msndf.isna()):
         msnPad = msndf.fillna(method='pad', axis=1).convert_objects(convert_numeric=True)

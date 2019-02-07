@@ -15,6 +15,12 @@ import matplotlib.pyplot as plt
 _package_dir = os.path.dirname(os.path.realpath(__file__))
 
 
+def set_post_learning_weights(dMSN=[1.01, 0.99], iMSN=[1.0, 1.0]):
+
+    preset = [{'cxd': {'dest': [0, 1], 'mult': dMSN, 'src': [0, 1]},
+              'cxi': {'dest': [0, 1], 'mult': iMSN, 'src': [0, 1]}}]
+    return preset
+
 def makeChannel(dim='brain', pops=[], subchannels=[]):
     return {'dim': dim,
             'subchannels': subchannels,
@@ -624,9 +630,9 @@ def describeBG(**kwargs):
     camP(c, 'D2STR', 'D1STR', 'GABA', ['syn'], conProb['D2STR']['D1STR_syn'], conEff['D2STR']['D1STR_syn'])
     camP(c, 'D2STR', 'GPeP', 'GABA', ['syn'], conProb['D2STR']['GPeP'], conEff['D2STR']['GPeP'], name='indirect')
 
-    ######################
-    #        NEW         #
-    ######################
+    #######################
+    #        TEST         #
+    #######################
     # camP(c, 'D1STR', 'D1STR', 'GABA', ['syn'], .1, .28)
     # camP(c, 'D1STR', 'D2STR', 'GABA', ['syn'], .1, .28)
     # camP(c, 'D1STR', 'GPi', 'GABA', ['syn'], .57, 1.07, name='direct')
