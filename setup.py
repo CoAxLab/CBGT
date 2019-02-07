@@ -5,7 +5,7 @@ import numpy as np
 ext_modules = [Extension('cbgt', ['src/cbgt.c'])]
 package_data = {'cbgt': ['src/*.c', 'src/*.h', 'docs/*.md',
                 'docs/*.txt', 'params/*.py', 'params/*.tex']}
-cbgt_packages = ['cbgt', 'cbgt.analyzefx', 'cbgt.netgen', 'cbgt.sim', 'cbgt.vis']
+cbgt_packages = ['cbgt', 'cbgt.src']
 
 setup(
     name='CBGT',
