@@ -7,7 +7,7 @@ __all__ = [ os.path.basename(f)[:-3] for f in modules]
 _package_dir = os.path.dirname(os.path.realpath(__file__))
 
 
-__version__ = '0.0.1'
+__version__ = '0.0.2'
 
 from . import netgen
 from . import analyzefx
