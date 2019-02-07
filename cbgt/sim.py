@@ -1,7 +1,7 @@
 import os
 import numpy as np
 import pandas as pd
-import bgNetwork.netgen as ng
+import cbgt.netgen as ng
 import random
 import warnings
 

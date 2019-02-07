@@ -2,6 +2,10 @@ from setuptools import setup, find_packages
 from setuptools import Extension
 import numpy as np
 
+# UPDATE PYPI RELEASE (Version Update)
+# pip install --upgrade setuptools wheel twine
+# python setup.py sdist bdist_wheel; twine upload dist/cbgt-0.0.1*
+
 ext_modules = [Extension('cbgt', ['src/cbgt.c'])]
 package_data = {'cbgt': ['src/*.c', 'src/*.h', 'docs/*.md',
                 'docs/*.txt', 'params/*.py', 'params/*.tex']}
@@ -9,7 +13,7 @@ cbgt_packages = ['cbgt', 'cbgt.src']
 
 setup(
     name='CBGT',
-    version='0.0.1',
+    version='0.0.2',
     author='Kyle Dunovan, Catalina Vich, Matthew Clapp, Timothy Verstynen, Jonathan Rubin, Wei Wei, and Xiao Jing Wang',
     author_email='dunovank@gmail.com',
     url='http://github.com/CoAxLab/bgNetwork',

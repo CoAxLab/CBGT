@@ -1,5 +1,5 @@
 import os
-import bgNetwork.netgen as ng
+import cbgt.netgen as ng
 import numpy as np
 import pandas as pd
 

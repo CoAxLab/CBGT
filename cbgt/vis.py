@@ -1,7 +1,7 @@
 import os
 import numpy as np
 import pandas as pd
-from bgNetwork.analyzefx import *
+from cbgt.analyzefx import *
 from scipy.stats.distributions import norm
 from scipy.stats import truncnorm
 import matplotlib.pyplot as plt
