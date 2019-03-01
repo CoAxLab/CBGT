@@ -578,7 +578,7 @@ def describeBG(**kwargs):
     AMPA = makeReceptor('AMPA', {'Tau': 2, 'RevPot': 0})
     NMDA = makeReceptor('NMDA', {'Tau': 100, 'RevPot': 0})
 
-    LIP = makePop("LIP", [GABA, [AMPA, 800, 2.8, 2.2], NMDA], cd_pre, {'N': 680})
+    LIP = makePop("LIP", [GABA, [AMPA, 800, 2.8, 2.2], NMDA], cd_pre, {'N': 680, 'dpmn_cortex': 1})
 
     camP(c, 'LIP', 'D1STR', ['AMPA', 'NMDA'], ['syn'], 0.45, [config['CxSTR'], config['CxSTR']], name='cxd')
     camP(c, 'LIP', 'D2STR',  ['AMPA', 'NMDA'], ['syn'], 0.45, [config['CxSTR'], config['CxSTR']], name='cxi')
