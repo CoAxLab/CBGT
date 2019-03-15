@@ -694,8 +694,8 @@ int DescribeNetwork() {
         continue;
       }
 	  
-	  //int dpmn_cortex;    // 0 = not cortex, 1 = cortex
-	  if (strncmp(s, "dpmn_cortex=", 12) == 0) {
+      //int dpmn_cortex;    // 0 = not cortex, 1 = cortex
+      if (strncmp(s, "dpmn_cortex=", 12) == 0) {
         PopD[currentpop].dpmn_cortex = atoi(s + 12);
         report("  dpmn_cortex=%d\n", PopD[currentpop].dpmn_cortex);
         continue;
@@ -1579,7 +1579,7 @@ int SimulateOneTimeStep() {
               ALPHA *
               (1. - Pop[p].Cell[sourceneuron].Axonals[j].LastConductance);
         }
-        if (Pop[p].Cell[sourceneuron].dpmn_cortex && Pop[tp].Cell[tn].dpmn_type && tr == AMPA) {
+        if (Pop[p].Cell[sourceneuron].dpmn_cortex && Pop[tp].Cell[tn].dpmn_type) {
           Pop[tp].Cell[tn].LS[tr] = ((Pop[tp].Cell[tn].LS[tr] + Pop[tp].Cell[tn].dpmn_w))*D*F;
         }
         // Calculate the change of D and F due to the spike.
@@ -1591,7 +1591,7 @@ int SimulateOneTimeStep() {
             Pop[p].Cell[sourceneuron].Axonals[j].D;
 
         // dopaminergic learning
-        if (Pop[p].Cell[sourceneuron].dpmn_cortex && tr == AMPA) {
+        if (Pop[p].Cell[sourceneuron].dpmn_cortex && Pop[tp].Cell[tn].dpmn_type) {
           Pop[tp].Cell[tn].dpmn_XPRE = 1; // presynaptic from perspective of target neuron
         }
       }  // for j
@@ -2015,7 +2015,7 @@ void SaveWeights() {
   if (InitFlag || (lasttrial != CurrentTrial)) {
     sprintf(TempName, "popweights%d.dat", Trialnumber);
     devfreqs = fopen(TempName, "w");
-    if (devfreqs == NULL) return 0;
+    if (devfreqs == NULL) return;
     fprintf(devfreqs, "Time (ms)\t");
     for (p = 0; p < Npop; p++) {
       fprintf(devfreqs, "%s\t", Pop[p].Label);
@@ -2055,7 +2055,7 @@ void SaveE() {
   if (InitFlag || (lasttrial != CurrentTrial)) {
     sprintf(TempName, "popEs%d.dat", Trialnumber);
     devfreqs = fopen(TempName, "w");
-    if (devfreqs == NULL) return 0;
+    if (devfreqs == NULL) return;
     fprintf(devfreqs, "Time (ms)\t");
     for (p = 0; p < Npop; p++) {
       fprintf(devfreqs, "%s\t", Pop[p].Label);
@@ -2082,6 +2082,45 @@ void SaveE() {
   counter++;
 }
 
+void SaveDC() {
+  static int InitFlag = 1;
+  static FILE *devfreqs;
+  static int counter;
+  static int lasttrial = 0;
+  int i, p;
+  char TempName[100];
+
+  // initialize if it is the first call
+  if (InitFlag || (lasttrial != CurrentTrial)) {
+    sprintf(TempName, "popDCs%d.dat", Trialnumber);
+    devfreqs = fopen(TempName, "w");
+    if (devfreqs == NULL) return;
+    fprintf(devfreqs, "Time (ms)\t");
+    for (p = 0; p < Npop; p++) {
+      fprintf(devfreqs, "%s\t", Pop[p].Label);
+    }
+    fprintf(devfreqs, "\n");
+    fflush(devfreqs);
+    InitFlag = 0;
+    counter = 0;
+  }
+  if ((counter % STEPSFORSAVINGFREQS) == 0) {
+    fprintf(devfreqs, "%f\t", Time);
+    for (p = 0; p < Npop; p++) {
+      float avg;
+      avg = 0;
+      for (i = 0; i < Pop[p].Ncells; i++) {
+        avg += Pop[p].Cell[i].dpmn_cortex;
+      }
+      avg /= Pop[p].Ncells;
+      fprintf(devfreqs, "%f\t", avg );  // debugging dopamine
+    }
+    fprintf(devfreqs, "\n");
+    fflush(devfreqs);
+  }
+  counter++;
+}
+
 void SaveQ1() {
   static int InitFlag = 1;
   static FILE *devfreqs;
@@ -2094,7 +2133,7 @@ void SaveQ1() {
   if (InitFlag || (lasttrial != CurrentTrial)) {
     sprintf(TempName, "popQ1s%d.dat", Trialnumber);
     devfreqs = fopen(TempName, "w");
-    if (devfreqs == NULL) return 0;
+    if (devfreqs == NULL) return;
     fprintf(devfreqs, "Time (ms)\t");
     for (p = 0; p < Npop; p++) {
       fprintf(devfreqs, "%s\t", Pop[p].Label);
@@ -2128,7 +2167,7 @@ void SaveQ2() {
   if (InitFlag || (lasttrial != CurrentTrial)) {
     sprintf(TempName, "popQ2s%d.dat", Trialnumber);
     devfreqs = fopen(TempName, "w");
-    if (devfreqs == NULL) return 0;
+    if (devfreqs == NULL) return;
     fprintf(devfreqs, "Time (ms)\t");
     for (p = 0; p < Npop; p++) {
       fprintf(devfreqs, "%s\t", Pop[p].Label);
@@ -2149,6 +2188,7 @@ void SaveQ2() {
   }
   counter++;
 }
+
 void SaveDpmn() {
   static int InitFlag = 1;
   static FILE *devfreqs;
@@ -2161,7 +2201,7 @@ void SaveDpmn() {
   if (InitFlag || (lasttrial != CurrentTrial)) {
     sprintf(TempName, "dopamine%d.dat", Trialnumber);
     devfreqs = fopen(TempName, "w");
-    if (devfreqs == NULL) return 0;
+    if (devfreqs == NULL) return;
     fprintf(devfreqs, "Time (ms)\t");
     for (p = 0; p < Npop; p++) {
       fprintf(devfreqs, "%s\t", Pop[p].Label);
@@ -2181,6 +2221,123 @@ void SaveDpmn() {
       // }
       fprintf(devfreqs, "%f\t",
               DA );  // debugging dopamine
+    }
+    fprintf(devfreqs, "\n");
+    fflush(devfreqs);
+  }
+  counter++;
+}
+
+void SaveNMDA() {
+  static int InitFlag = 1;
+  static FILE *devfreqs;
+  static int counter;
+  static int lasttrial = 0;
+  int i, p;
+  char TempName[100];
+
+  // initialize if it is the first call
+  if (InitFlag || (lasttrial != CurrentTrial)) {
+    sprintf(TempName, "popNMDAs%d.dat", Trialnumber);
+    devfreqs = fopen(TempName, "w");
+    if (devfreqs == NULL) return;
+    fprintf(devfreqs, "Time (ms)\t");
+    for (p = 0; p < Npop; p++) {
+      fprintf(devfreqs, "%s\t", Pop[p].Label);
+    }
+    fprintf(devfreqs, "\n");
+    fflush(devfreqs);
+    InitFlag = 0;
+    counter = 0;
+  }
+  if ((counter % STEPSFORSAVINGFREQS) == 0) {
+    fprintf(devfreqs, "%f\t", Time);
+    for (p = 0; p < Npop; p++) {
+      float avg;
+      avg = 0;
+      for (i = 0; i < Pop[p].Ncells; i++) {
+        avg += Pop[p].Cell[i].LS[NMDA];
+      }
+      avg /= Pop[p].Ncells;
+      fprintf(devfreqs, "%f\t", avg );  // debugging dopamine
+    }
+    fprintf(devfreqs, "\n");
+    fflush(devfreqs);
+  }
+  counter++;
+}
+
+void SaveAMPA() {
+  static int InitFlag = 1;
+  static FILE *devfreqs;
+  static int counter;
+  static int lasttrial = 0;
+  int i, p;
+  char TempName[100];
+
+  // initialize if it is the first call
+  if (InitFlag || (lasttrial != CurrentTrial)) {
+    sprintf(TempName, "popAMPAs%d.dat", Trialnumber);
+    devfreqs = fopen(TempName, "w");
+    if (devfreqs == NULL) return;
+    fprintf(devfreqs, "Time (ms)\t");
+    for (p = 0; p < Npop; p++) {
+      fprintf(devfreqs, "%s\t", Pop[p].Label);
+    }
+    fprintf(devfreqs, "\n");
+    fflush(devfreqs);
+    InitFlag = 0;
+    counter = 0;
+  }
+  if ((counter % STEPSFORSAVINGFREQS) == 0) {
+    fprintf(devfreqs, "%f\t", Time);
+    for (p = 0; p < Npop; p++) {
+      float avg;
+      avg = 0;
+      for (i = 0; i < Pop[p].Ncells; i++) {
+        avg += Pop[p].Cell[i].LS[AMPA];
+      }
+      avg /= Pop[p].Ncells;
+      fprintf(devfreqs, "%f\t", avg );  // debugging dopamine
+    }
+    fprintf(devfreqs, "\n");
+    fflush(devfreqs);
+  }
+  counter++;
+}
+
+void SaveGABA() {
+  static int InitFlag = 1;
+  static FILE *devfreqs;
+  static int counter;
+  static int lasttrial = 0;
+  int i, p;
+  char TempName[100];
+
+  // initialize if it is the first call
+  if (InitFlag || (lasttrial != CurrentTrial)) {
+    sprintf(TempName, "popGABAs%d.dat", Trialnumber);
+    devfreqs = fopen(TempName, "w");
+    if (devfreqs == NULL) return;
+    fprintf(devfreqs, "Time (ms)\t");
+    for (p = 0; p < Npop; p++) {
+      fprintf(devfreqs, "%s\t", Pop[p].Label);
+    }
+    fprintf(devfreqs, "\n");
+    fflush(devfreqs);
+    InitFlag = 0;
+    counter = 0;
+  }
+  if ((counter % STEPSFORSAVINGFREQS) == 0) {
+    fprintf(devfreqs, "%f\t", Time);
+    for (p = 0; p < Npop; p++) {
+      float avg;
+      avg = 0;
+      for (i = 0; i < Pop[p].Ncells; i++) {
+        avg += Pop[p].Cell[i].LS[GABA];
+      }
+      avg /= Pop[p].Ncells;
+      fprintf(devfreqs, "%f\t", avg );  // debugging dopamine
     }
     fprintf(devfreqs, "\n");
     fflush(devfreqs);
@@ -2440,6 +2597,10 @@ int main(int argc, char *argv[])
       SaveQ2();
       SaveDpmn();
       SaveTraces();
+      SaveDC();
+      SaveNMDA();
+      SaveAMPA();
+      SaveGABA();
 
       if (runflag == 0 && CStage < NStages - 1) {
         CStage++;
