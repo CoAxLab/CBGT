@@ -393,7 +393,7 @@ def compileOnly(trials=1, offset=0, sweepcount=1):
     if sys.platform == "linux" or sys.platform == "linux2":
         compiler = 'gcc'
         # number of clients for multiprocess
-        parallel = 8
+        parallel = 2 # 8
     elif sys.platform == "darwin":
         compiler = 'gcc-7'
         parallel = 4
@@ -401,6 +401,10 @@ def compileOnly(trials=1, offset=0, sweepcount=1):
     for sweepnumber in range(0, sweepcount):
         simfile = os.path.join(getDirectory(sweepnumber), 'sim')
         call('{} -o {} BG_inh_pathway_spedup.c rando2.h -lm -std=c99'.format(compiler, simfile), shell=True, cwd=_package_dir)
+    
+    print(_package_dir)
+    print(compiler)
+    print('{} -o {} BG_inh_pathway_spedup.c rando2.h -lm -std=c99'.format(compiler, simfile))
 
 def compileAndRun(trials=1, offset=0, sweepnumber=0):
     if sys.platform == "linux" or sys.platform == "linux2":
@@ -424,7 +428,7 @@ def compileAndRunSweep(trials=1, offset=0, sweepcount=1):
     if sys.platform == "linux" or sys.platform == "linux2":
         compiler = 'gcc'
         # number of clients for multiprocess
-        parallel = 8
+        parallel = 2 # 8
     elif sys.platform == "darwin":
         compiler = 'gcc-7'
         parallel = 4
@@ -449,7 +453,7 @@ def compileAndRunSweepALL(trials=1, offset=0, sweepcount=1):
     if sys.platform == "linux" or sys.platform == "linux2":
         compiler = 'gcc'
         # number of clients for multiprocess
-        parallel = 8
+        parallel = 2 # 8
     elif sys.platform == "darwin":
         compiler = 'gcc-7'
         parallel = 4
@@ -480,7 +484,7 @@ def getCellDefaults():
             'Alpha_ca': 0.5,
             'Tau_ca': 80,
             'Eff_ca': 0.0,
-
+            # 'dpmn_cortex':1,
             'tauhm': 20,
             'tauhp': 100,
             'V_h': -60,
@@ -663,7 +667,7 @@ def mcInfo(**kwargs):
 
     hes = []
     houts = []
-    for i in range(0,50):
+    for i in range(0,2):
         hes.append(makeHandleEvent('reset', 0, 'sensory', [], config['BaseStim']))
         hes.append(makeHandleEvent('wrong stimulus', config['Start'], 'sensory', [], config['WrongStim']+0.0025*((i+1)%2)))
         hes.append(makeHandleEvent('right stimulus', config['Start'], 'sensory', [0], config['RightStim']+0.0025*(i%2)))
@@ -946,7 +950,8 @@ def findOutputs2(trialdata, df=None):
 
 def setDirectory(prefix='autotest'):
     global directoryprefix
-    directoryprefix = os.path.join(os.path.expanduser('~'), prefix, 'sweeps')
+    # directoryprefix = os.path.join(os.path.expanduser('~'), prefix, 'sweeps')
+    directoryprefix = os.path.join(_package_dir, prefix, 'sweeps')
 
 
 def getDirectory(sweepnumber=0):
