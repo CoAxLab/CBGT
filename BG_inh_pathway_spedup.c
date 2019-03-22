@@ -1554,9 +1554,9 @@ int SimulateOneTimeStep() {
         tr = Pop[p].Cell[sourceneuron].Axonals[j].TargetReceptor;
         // dopaminergic learning equation 1
         dpmn_eff = Pop[p].Cell[sourceneuron].Axonals[j].Efficacy;
-        /*if (Pop[tp].Cell[tn].dpmn_type && tr != GABA) {
+        if (Pop[tp].Cell[tn].dpmn_type && tr == AMPA) {
           dpmn_eff *= Pop[tp].Cell[tn].dpmn_w / 0.015; // adjust scale of weight
-        }*/
+        }
         if (Pop[p].Cell[sourceneuron].Axonals[j].LastConductance <
             0.) {  // NO NMDA (no saturation)
           Pop[tp].Cell[tn].LS[tr] += D * F * dpmn_eff;  // no saturation
