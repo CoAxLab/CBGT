@@ -1310,10 +1310,10 @@ int GenerateNetwork() {
         Pop[p].Cell[i].Axonals[j].TargetNeuron = ni[j];
         Pop[p].Cell[i].Axonals[j].Efficacy = eff[j];
         Pop[p].Cell[i].Axonals[j].TargetReceptor = trni[j];
-        Pop[p].Cell[i].Axonals[j].D = D[j];
+        // Pop[p].Cell[i].Axonals[j].D = D[j];  // CATI: I guess we don't need it anymore
         Pop[p].Cell[i].Axonals[j].pv = pv[j];
         Pop[p].Cell[i].Axonals[j].tauD = tauD[j];
-        Pop[p].Cell[i].Axonals[j].F = F[j];
+        // Pop[p].Cell[i].Axonals[j].F = F[j];  // CATI: I guess we don't need it anymore
         Pop[p].Cell[i].Axonals[j].Fp = Fp[j];
         Pop[p].Cell[i].Axonals[j].tauF = tauF[j];
         Pop[p].Cell[i].Axonals[j].LastConductance = ts[j];
@@ -1429,11 +1429,11 @@ int SimulateOneTimeStep() {
   int p, i, j, r, sourceneuron;
   int tn, tp, tr;
   float s, saturationfactor;
-  float dpmn_eff; // dopaminergic learning: synaptic efficacy adjusted by
+    //CATI: We don't use is dpmn_eff anymore. We use dpmn_w directly
+  // float dpmn_eff; // dopaminergic learning: synaptic efficacy adjusted by
                   // dopamine weight (dpmn_w) if any
   float Vaux;  // auxiliary V: during the emission of the spike V is set
                // artificially to 0. This is bad for the reversal potential
-  float D, F;
   float g_rb;  // rebound burst
   float g_adr, g_k, tau_max, alpha, beta, dv, n, tau_n, n_inif, efficacy,
       ExtMuS, ExtSigmaS;
@@ -1468,6 +1468,7 @@ int SimulateOneTimeStep() {
 
   // Compute the decay of the total conductances and add external input
   // ------------------------------------------------------------------
+    // CATI: NOT sure what is it doing, I didn't modify it since it does not depend on D and F
   for (p = 0; p < Npop; p++) {
     for (r = 0; r < MAXRECEPTORS; r++) {
       if (PopD[p].FreqExtSD[r] != 0) {
@@ -1517,6 +1518,7 @@ int SimulateOneTimeStep() {
 
   // Update the total conductances (changes provoked by the spikes)
   // --------------------------------------------------------------
+    // CATI: STD,STF equations removed!
   for (p = 0; p < Npop; p++) {  // if (Time==0) printf("the spike tabel %d\n",
                                 // Pop[p].TableofSpikes[20][100]);
     // loop over all the spikes emitted at time t-delay (they are received now)
@@ -1524,80 +1526,21 @@ int SimulateOneTimeStep() {
       sourceneuron = Pop[p].TableofSpikes[Pop[p].DTableofSpikes][i];
 
       // for each spike, loop over the target conductances
-      for (j = 0; j < Pop[p].Cell[sourceneuron].Naxonals; j++) {
-        // Short-term depression: Calculate the recovery of D first.
-        //? EQUATION 7 for STD
-        Pop[p].Cell[sourceneuron].Axonals[j].D =
-            1 -
-            (1 - Pop[p].Cell[sourceneuron].Axonals[j].D) *
-                exp(-(Time - Pop[p].Cell[sourceneuron].PTimeLastSpike) /
-                    Pop[p].Cell[sourceneuron].Axonals[j].tauD);
-        D = Pop[p].Cell[sourceneuron].Axonals[j].D;
-        // D=1.0;
-        // if(sourceneuron==20) printf(" %.1f %.1f .1%f .3%f \n",Time,
-        // Pop[p].Cell[sourceneuron].PTimeLastSpike,
-        // Pop[p].Cell[sourceneuron].tauD, Pop[p].Cell[sourceneuron].D);
-
-        // Short-term facilitation: Calculate the F value
-        //? EQUATION 7 for STF
-        if (Pop[p].Cell[sourceneuron].Axonals[j].Fp == 0)
-          F = 1;
-        else {
-          Pop[p].Cell[sourceneuron].Axonals[j].F =
-              Pop[p].Cell[sourceneuron].Axonals[j].F *
-              exp(-(Time - Pop[p].Cell[sourceneuron].PTimeLastSpike) /
-                  Pop[p].Cell[sourceneuron].Axonals[j].tauF);
-          F = Pop[p].Cell[sourceneuron].Axonals[j].F;
-        }
         tn = Pop[p].Cell[sourceneuron].Axonals[j].TargetNeuron;
         tp = Pop[p].Cell[sourceneuron].Axonals[j].TargetPop;
         tr = Pop[p].Cell[sourceneuron].Axonals[j].TargetReceptor;
         // dopaminergic learning equation 1
-        dpmn_eff = Pop[p].Cell[sourceneuron].Axonals[j].Efficacy;
-        if (Pop[tp].Cell[tn].dpmn_type && tr == AMPA) {
-          dpmn_eff *= Pop[tp].Cell[tn].dpmn_w / 0.015; // adjust scale of weight
-        }
-        if (Pop[p].Cell[sourceneuron].Axonals[j].LastConductance <
-            0.) {  // NO NMDA (no saturation)
-          Pop[tp].Cell[tn].LS[tr] += D * F * dpmn_eff;  // no saturation
+        // dpmn_eff = Pop[p].Cell[sourceneuron].Axonals[j].Efficacy; // CATI: I guess we don't need it anymore. We directly use dpmn_w in the equation below.
+        if (Pop[p].Cell[sourceneuron].dpmn_cortex && Pop[tp].Cell[tn].dpmn_type && tr == AMPA) {
+          Pop[tp].Cell[tn].LS[tr] = (Pop[tp].Cell[tn].LS[tr] + Pop[tp].Cell[tn].dpmn_w);
         } else {
-// Now it should be correct. ALPHA factor to be determined (jump for every
-// spike): now it is the maximum of a single spike
-// TEMPORARY
-#define ALPHA 0.6332
-          // 0.6332 is the best value for the area at 55 Hz. Best value depends
-          // on the frequency!!!
-          Pop[p].Cell[sourceneuron].Axonals[j].LastConductance *=
-              exp(-(Time - Pop[p].Cell[sourceneuron].PTimeLastSpike) /
-                  Pop[tp].Cell[tn].Tau[tr]);
-
-          Pop[tp].Cell[tn].LS[tr] += D * F * dpmn_eff *
-              (1. - Pop[p].Cell[sourceneuron].Axonals[j].LastConductance) *
-              ALPHA;
-
-          Pop[p].Cell[sourceneuron].Axonals[j].LastConductance +=
-              ALPHA *
-              (1. - Pop[p].Cell[sourceneuron].Axonals[j].LastConductance);
+            Pop[tp].Cell[tn].LS[tr] = (Pop[tp].Cell[tn].LS[tr] + Pop[p].Cell[sourceneuron].Axonals[j].Efficacy);
         }
-        if (Pop[p].Cell[sourceneuron].dpmn_cortex && Pop[tp].Cell[tn].dpmn_type) {
-          Pop[tp].Cell[tn].LS[tr] = ((Pop[tp].Cell[tn].LS[tr] + Pop[tp].Cell[tn].dpmn_w))*D*F;
-        }
-        // Calculate the change of D and F due to the spike.
-        Pop[p].Cell[sourceneuron].Axonals[j].F +=
-            Pop[p].Cell[sourceneuron].Axonals[j].Fp *
-            (1 - Pop[p].Cell[sourceneuron].Axonals[j].F);
-        Pop[p].Cell[sourceneuron].Axonals[j].D -=
-            Pop[p].Cell[sourceneuron].Axonals[j].pv * F *
-            Pop[p].Cell[sourceneuron].Axonals[j].D;
-
         // dopaminergic learning
         if (Pop[p].Cell[sourceneuron].dpmn_cortex && Pop[tp].Cell[tn].dpmn_type) {
           Pop[tp].Cell[tn].dpmn_XPRE = 1; // presynaptic from perspective of target neuron
         }
-      }  // for j
-         //                if(sourceneuron==20) printf("
-         //                %f\n",Pop[p].Cell[sourceneuron].D);
-      // if(Pop[p].Cell[sourceneuron].D<=0) Pop[p].Cell[sourceneuron].D=0;
+      }
     }
   }
 
