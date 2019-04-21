@@ -1532,9 +1532,9 @@ int SimulateOneTimeStep() {
         // dopaminergic learning equation 1
         // dpmn_eff = Pop[p].Cell[sourceneuron].Axonals[j].Efficacy; // CATI: I guess we don't need it anymore. We directly use dpmn_w in the equation below.
         if (Pop[p].Cell[sourceneuron].dpmn_cortex && Pop[tp].Cell[tn].dpmn_type && tr == AMPA) {
-          Pop[tp].Cell[tn].LS[tr] = (Pop[tp].Cell[tn].LS[tr] + Pop[tp].Cell[tn].dpmn_w);
+          Pop[tp].Cell[tn].LS[tr] += Pop[tp].Cell[tn].dpmn_w);
         } else {
-            Pop[tp].Cell[tn].LS[tr] = (Pop[tp].Cell[tn].LS[tr] + Pop[p].Cell[sourceneuron].Axonals[j].Efficacy);
+            Pop[tp].Cell[tn].LS[tr] += Pop[p].Cell[sourceneuron].Axonals[j].Efficacy);
         }
         // dopaminergic learning
         if (Pop[p].Cell[sourceneuron].dpmn_cortex && Pop[tp].Cell[tn].dpmn_type) {
