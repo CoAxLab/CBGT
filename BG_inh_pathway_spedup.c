@@ -1310,12 +1310,12 @@ int GenerateNetwork() {
         Pop[p].Cell[i].Axonals[j].TargetNeuron = ni[j];
         Pop[p].Cell[i].Axonals[j].Efficacy = eff[j];
         Pop[p].Cell[i].Axonals[j].TargetReceptor = trni[j];
-        // Pop[p].Cell[i].Axonals[j].D = D[j];  // CATI: I guess we don't need it anymore
+        //Pop[p].Cell[i].Axonals[j].D = D[j];
         Pop[p].Cell[i].Axonals[j].pv = pv[j];
-        Pop[p].Cell[i].Axonals[j].tauD = tauD[j];
-        // Pop[p].Cell[i].Axonals[j].F = F[j];  // CATI: I guess we don't need it anymore
+        //Pop[p].Cell[i].Axonals[j].tauD = tauD[j];
+        //Pop[p].Cell[i].Axonals[j].F = F[j];
         Pop[p].Cell[i].Axonals[j].Fp = Fp[j];
-        Pop[p].Cell[i].Axonals[j].tauF = tauF[j];
+        //Pop[p].Cell[i].Axonals[j].tauF = tauF[j];
         Pop[p].Cell[i].Axonals[j].LastConductance = ts[j];
       }
     }  // end for i
@@ -1429,9 +1429,6 @@ int SimulateOneTimeStep() {
   int p, i, j, r, sourceneuron;
   int tn, tp, tr;
   float s, saturationfactor;
-    //CATI: We don't use is dpmn_eff anymore. We use dpmn_w directly
-  // float dpmn_eff; // dopaminergic learning: synaptic efficacy adjusted by
-                  // dopamine weight (dpmn_w) if any
   float Vaux;  // auxiliary V: during the emission of the spike V is set
                // artificially to 0. This is bad for the reversal potential
   float g_rb;  // rebound burst
@@ -1526,22 +1523,25 @@ int SimulateOneTimeStep() {
       sourceneuron = Pop[p].TableofSpikes[Pop[p].DTableofSpikes][i];
 
       // for each spike, loop over the target conductances
+      for (j = 0; j < Pop[p].Cell[sourceneuron].Naxonals; j++) {
         tn = Pop[p].Cell[sourceneuron].Axonals[j].TargetNeuron;
         tp = Pop[p].Cell[sourceneuron].Axonals[j].TargetPop;
         tr = Pop[p].Cell[sourceneuron].Axonals[j].TargetReceptor;
+          
         // dopaminergic learning equation 1
-        // dpmn_eff = Pop[p].Cell[sourceneuron].Axonals[j].Efficacy; // CATI: I guess we don't need it anymore. We directly use dpmn_w in the equation below.
         if (Pop[p].Cell[sourceneuron].dpmn_cortex && Pop[tp].Cell[tn].dpmn_type && tr == AMPA) {
           Pop[tp].Cell[tn].LS[tr] += Pop[tp].Cell[tn].dpmn_w;
         } else {
             Pop[tp].Cell[tn].LS[tr] += Pop[p].Cell[sourceneuron].Axonals[j].Efficacy;
         }
+
         // dopaminergic learning
         if (Pop[p].Cell[sourceneuron].dpmn_cortex && Pop[tp].Cell[tn].dpmn_type) {
           Pop[tp].Cell[tn].dpmn_XPRE = 1; // presynaptic from perspective of target neuron
         }
       }
     }
+  }
 
   // Update the neuronal variables
   // -----------------------------
