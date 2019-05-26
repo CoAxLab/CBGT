@@ -584,46 +584,46 @@ def describeBG(**kwargs):
 
     LIP = makePop("LIP", [GABA, [AMPA, 800, 2.8, 2.2], NMDA], cd_pre, {'N': 680, 'dpmn_cortex': 1})
 
-    camP(c, 'LIP', 'D1STR', ['AMPA', 'NMDA'], ['syn'], 0.45, [config['CxSTR'], config['CxSTR']], name='cxd')
-    camP(c, 'LIP', 'D2STR',  ['AMPA', 'NMDA'], ['syn'], 0.45, [config['CxSTR'], config['CxSTR']], name='cxi')
+    camP(c, 'LIP', 'D1STR', ['AMPA', 'NMDA'], ['syn'], 0.045, [config['CxSTR'], config['CxSTR']], name='cxd')
+    camP(c, 'LIP', 'D2STR',  ['AMPA', 'NMDA'], ['syn'], 0.045, [config['CxSTR'], config['CxSTR']], name='cxi')
     camP(c, 'LIP', 'FSI', 'AMPA', ['all'], 0.45, config['CxFSI'], name='cxfsi')
-    camP(c, 'LIP', 'Th', ['AMPA', 'NMDA'], ['all'], 0.35, [config['CxTh'], config['CxTh']])
+    camP(c, 'LIP', 'Th', ['AMPA', 'NMDA'], ['all'], 0.035, [config['CxTh'], config['CxTh']])
 
     D1STR = makePop("D1STR", [GABA, [AMPA, 800, 4., 1.3], NMDA], cd_pre, getD1CellDefaults())
-    camP(c, 'D1STR', 'D1STR', 'GABA', ['syn'], .135, .28)
-    camP(c, 'D1STR', 'D2STR', 'GABA', ['syn'], .135, .28)
-    camP(c, 'D1STR', 'GPi', 'GABA', ['syn'], .55, 1.05, name='direct')
+    camP(c, 'D1STR', 'D1STR', 'GABA', ['syn'], .0485, .28)
+    camP(c, 'D1STR', 'D2STR', 'GABA', ['syn'], .0135, .28)
+    camP(c, 'D1STR', 'GPi', 'GABA', ['syn'], .055, 1.05, name='direct')
 
     D2STR = makePop("D2STR", [GABA, [AMPA, 800, 4., 1.3], NMDA], cd_pre, getD2CellDefaults())
-    camP(c, 'D2STR', 'D2STR', 'GABA', ['syn'], .135, .28)
-    camP(c, 'D2STR', 'D1STR', 'GABA', ['syn'], .15, .28*.8)
-    camP(c, 'D2STR', 'D1STR', 'GABA', ['anti'], .15, .28*.8)
+    camP(c, 'D2STR', 'D2STR', 'GABA', ['syn'], .0485, .28)
+    camP(c, 'D2STR', 'D1STR', 'GABA', ['syn'], .015, .28*.8)
+    camP(c, 'D2STR', 'D1STR', 'GABA', ['anti'], .015, .28*.8)
     camP(c, 'D2STR', 'GPeP', 'GABA', ['syn'], .74, 1.65, name='indirect')
 
     FSI = makePop("FSI", [GABA, [AMPA, 800, 1.55, 3.], NMDA], cd_pre, {'C': 0.2, 'Taum': 10})
-    camP(c, 'FSI', 'FSI', 'GABA', ['all'], .85, 1.15)
-    camP(c, 'FSI', 'D1STR', 'GABA', ['all'], .65, 1.2)
-    camP(c, 'FSI', 'D2STR', 'GABA', ['all'], .62, 1.2)
+    camP(c, 'FSI', 'FSI', 'GABA', ['all'], .045, 1.15)
+    camP(c, 'FSI', 'D1STR', 'GABA', ['all'], .065, 1.2)
+    camP(c, 'FSI', 'D2STR', 'GABA', ['all'], .062, 1.2)
 
     GPeP = makePop("GPeP", [[GABA, 2000, 2, 2], [AMPA, 800, 2, 4.85], NMDA],
                     cd_pre, {'N': 2500, 'g_T': 0.06})
-    camP(c, 'GPeP', 'GPeP', 'GABA', ['all'], 0.02, 1.5)
-    camP(c, 'GPeP', 'STNE', 'GABA', ['syn'], 0.02, 0.4)
-    camP(c, 'GPeP', 'GPi', 'GABA', ['syn'], 1, 0.012)
+    camP(c, 'GPeP', 'GPeP', 'GABA', ['all'], 0.008, 1.5)
+    camP(c, 'GPeP', 'STNE', 'GABA', ['syn'], 0.002, 0.4)
+    camP(c, 'GPeP', 'GPi', 'GABA', ['syn'], 1, 0.0012)
 
     STNE = makePop("STNE", [GABA, [AMPA, 800, config['STNExtEff'],
                 config['STNExtFreq']], NMDA], cd_pre, {'N': 2500, 'g_T': 0.06})
-    camP(c, 'STNE', 'GPeP', ['AMPA', 'NMDA'], ['syn'], 0.0485, [0.07, 4])
-    camP(c, 'STNE', 'GPi', 'NMDA', ['all'], 1, 0.0314)
+    camP(c, 'STNE', 'GPeP', ['AMPA', 'NMDA'], ['syn'], 0.00485, [0.07, 4])
+    camP(c, 'STNE', 'GPi', 'NMDA', ['all'], 1, 0.00314)
 
     GPi = makePop("GPi", [ GABA, [AMPA, 800, config['GPiExtEff'], 0.8], NMDA], cd_pre)
-    camP(c, 'GPi', 'Th', 'GABA', ['syn'], .85, 0.067)
+    camP(c, 'GPi', 'Th', 'GABA', ['syn'], .85, 0.0067)
 
     Th = makePop('Th', [GABA, [AMPA, 800, 2.5, 2.2], NMDA], cd_pre)
-    camP(c, 'Th', 'D1STR', 'AMPA', ['syn'], 0.45, config['ThSTR'])
-    camP(c, 'Th', 'D2STR', 'AMPA', ['syn'], 0.45, config['ThSTR'])
-    camP(c, 'Th', 'FSI', 'AMPA', ['all'], 0.25, config['ThSTR'])
-    camP(c, 'Th', 'LIP', 'NMDA', ['all'], 0.25, config['ThCx'], name='thcx')
+    camP(c, 'Th', 'D1STR', 'AMPA', ['syn'], 0.045, config['ThSTR'])
+    camP(c, 'Th', 'D2STR', 'AMPA', ['syn'], 0.045, config['ThSTR'])
+    camP(c, 'Th', 'FSI', 'AMPA', ['all'], 0.025, config['ThSTR'])
+    camP(c, 'Th', 'LIP', 'NMDA', ['all'], 0.025, config['ThCx'], name='thcx')
 
     action_channel = makeChannel('choices', [GPi, STNE, GPeP, D1STR, D2STR, LIP, Th])
 
