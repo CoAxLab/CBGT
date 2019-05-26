@@ -494,18 +494,18 @@ def getCellDefaults():
 def getD1CellDefaults():
     return {
                 # not specific
-                'dpmn_tauDOP':2.0*5,         #2.0*10,
+                'dpmn_tauDOP':2,         #2.0*10,  2*5
                  #'dpmn_taug':3.0,
                 'dpmn_alpha':0.05,
                 'dpmn_DAt':0.0,              #0.2,
                 'dpmn_taum':4000.0*5,
                 # specific to D1
                 'dpmn_type': 1,
-                'dpmn_alphaw': 8.0,          #0.00080,
-                'dpmn_dPRE': 1,              #10,
-                'dpmn_dPOST':0.87,           #6,
-                'dpmn_tauE':3*9,             #3*3,
-                'dpmn_tauPRE':9*5,           #9*3,
+                'dpmn_alphaw': 55,          # 0.55
+                'dpmn_dPRE': 0.8,              #10,
+                'dpmn_dPOST':0.04,           #6,   0.087
+                'dpmn_tauE': 3*5,             #3*3,
+                'dpmn_tauPRE': 3*5,           #9*3,
                 'dpmn_tauPOST':1.2*5,        #1.2*3,
                 'dpmn_wmax':0.13,
                 'dpmn_a':1.0,
@@ -527,18 +527,18 @@ def getD1CellDefaults():
 def getD2CellDefaults():
     return {
                 # not specific
-                'dpmn_tauDOP':2.0*5,          #2.0*10,
+                'dpmn_tauDOP': 2,          #2.0*10,  2*5
                  #'dpmn_taug':3.0,
                 'dpmn_alpha':0.05,
                 'dpmn_DAt':0,               #0.25,
                 'dpmn_taum':4000.0*5,         #4000.0*5,
                 # specific to D1
                 'dpmn_type': 2,
-                'dpmn_alphaw': -5.5, #-0.00055,
-                'dpmn_dPRE': 1,         #10,
-                'dpmn_dPOST': 0.87,      #6
-                'dpmn_tauE':3*9,              #3*3,
-                'dpmn_tauPRE':9*5,            #9*3,
+                'dpmn_alphaw': -45,     #-0.45
+                'dpmn_dPRE': 0.8,         #10,
+                'dpmn_dPOST': 0.04,      #6
+                'dpmn_tauE':3*5,              #3*3,
+                'dpmn_tauPRE':3*5,            #9*3,
                 'dpmn_tauPOST':1.2*5,         #1.2*3,
                 'dpmn_wmax':0.03,
                 'dpmn_a':0.5,
