@@ -281,6 +281,7 @@ Population Pop[MAXP];
 
 float dt = 0.2;      // in ms
 float Time;    // absolute time from the beginning of the trial
+float dpmn_RewardTime; // time at which reward is applied, which is decision time + 300
 int delayindt = 1; // transmission delay in dt
 int flagverbose=1; // flag to activate verbose messages
 int FlagSaveAllSpikes=1;
@@ -1705,7 +1706,7 @@ int SimulateOneTimeStep() {
           // equation 5 term 2
           Pop[p].Cell[i].dpmn_DAp -= dt * Pop[p].Cell[i].dpmn_DAp / Pop[p].Cell[i].dpmn_tauDOP;
           // equation 5 term 1, the learning step
-          if (rewardflag) {
+          if (rewardflag && Time >= dpmn_RewardTime) {
             // report("dpmn type %d\n", Pop[p].Cell[i].dpmn_type);
             if (rewardflag == 1) {
               DAinc = EndingEvent.RewardVal - Pop[p].Cell[i].dpmn_Q1;
@@ -1753,7 +1754,9 @@ int SimulateOneTimeStep() {
   }
 
   // reward has been performed if needed, so reset rewardflag
-  rewardflag = 0;
+  if (Time >= dpmn_RewardTime) {
+    rewardflag = 0;
+  }
 
   // Update the pointers of the table of spikes
   // ---------------------------------------------------------------
@@ -2550,7 +2553,10 @@ int main(int argc, char *argv[])
         CEvent=0;
         CCutoff=0;
         NextEventTime=Events[CStage][CEvent].ETime + CStageStart;
-        rewardflag = EndingEvent.RewardFlag;
+        if (rewardflag == 0 && EndingEvent.RewardFlag) {
+          rewardflag = EndingEvent.RewardFlag;
+          dpmn_RewardTime = Time + 300.0;
+        }
         runflag = 1;
         report("time %f\n", Time);
         report("reward flag %d\n", rewardflag);
