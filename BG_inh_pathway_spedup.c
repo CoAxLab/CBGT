@@ -694,7 +694,7 @@ int DescribeNetwork() {
         report("  dpmn_type=%d\n", PopD[currentpop].dpmn_type);
         continue;
       }
-	  
+
       //int dpmn_cortex;    // 0 = not cortex, 1 = cortex
       if (strncmp(s, "dpmn_cortex=", 12) == 0) {
         PopD[currentpop].dpmn_cortex = atoi(s + 12);
@@ -1528,7 +1528,7 @@ int SimulateOneTimeStep() {
         tn = Pop[p].Cell[sourceneuron].Axonals[j].TargetNeuron;
         tp = Pop[p].Cell[sourceneuron].Axonals[j].TargetPop;
         tr = Pop[p].Cell[sourceneuron].Axonals[j].TargetReceptor;
-          
+
         // dopaminergic learning equation 1
         if (Pop[p].Cell[sourceneuron].dpmn_cortex && Pop[tp].Cell[tn].dpmn_type && tr == AMPA) {
           Pop[tp].Cell[tn].LS[tr] += Pop[tp].Cell[tn].dpmn_w;
@@ -2556,6 +2556,15 @@ int main(int argc, char *argv[])
         if (rewardflag == 0 && EndingEvent.RewardFlag) {
           rewardflag = EndingEvent.RewardFlag;
           dpmn_RewardTime = Time + 300.0;
+          if (rewardflag == 1) {
+            Events[CStage][0].ETime += 300.0;
+            EventDescr temp;
+            temp = Events[CStage][0];
+            Events[CStage][0] = Events[CStage][1];
+            Events[CStage][1] = temp;
+          } else if (rewardflag == 2) {
+            Events[CStage][1].ETime += 300.0;
+          }
         }
         runflag = 1;
         report("time %f\n", Time);

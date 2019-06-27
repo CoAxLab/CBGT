@@ -395,13 +395,13 @@ def compileOnly(trials=1, offset=0, sweepcount=1):
         # number of clients for multiprocess
         parallel = 2 # 8
     elif sys.platform == "darwin":
-        compiler = 'gcc-7'
+        compiler = 'gcc-8'
         parallel = 4
 
     for sweepnumber in range(0, sweepcount):
         simfile = os.path.join(getDirectory(sweepnumber), 'sim')
         call('{} -o {} BG_inh_pathway_spedup.c rando2.h -lm -std=c99'.format(compiler, simfile), shell=True, cwd=_package_dir)
-    
+
     print(_package_dir)
     print(compiler)
     print('{} -o {} BG_inh_pathway_spedup.c rando2.h -lm -std=c99'.format(compiler, simfile))
@@ -410,7 +410,7 @@ def compileAndRun(trials=1, offset=0, sweepnumber=0):
     if sys.platform == "linux" or sys.platform == "linux2":
         compiler = 'gcc'
     elif sys.platform == "darwin":
-        compiler = 'gcc-7'
+        compiler = 'gcc-8'
 
     simfile = os.path.join(getDirectory(sweepnumber), 'sim')
     call('{} -o {} BG_inh_pathway_spedup.c rando2.h -lm -std=c99'.format(compiler, simfile), shell=True, cwd=_package_dir)
@@ -428,9 +428,9 @@ def compileAndRunSweep(trials=1, offset=0, sweepcount=1):
     if sys.platform == "linux" or sys.platform == "linux2":
         compiler = 'gcc'
         # number of clients for multiprocess
-        parallel = 2 # 8
+        parallel = 8
     elif sys.platform == "darwin":
-        compiler = 'gcc-7'
+        compiler = 'gcc-8'
         parallel = 4
 
     for sweepnumber in range(0, sweepcount):
@@ -453,9 +453,9 @@ def compileAndRunSweepALL(trials=1, offset=0, sweepcount=1):
     if sys.platform == "linux" or sys.platform == "linux2":
         compiler = 'gcc'
         # number of clients for multiprocess
-        parallel = 2 # 8
+        parallel = 8
     elif sys.platform == "darwin":
-        compiler = 'gcc-7'
+        compiler = 'gcc-8'
         parallel = 4
 
     for sweepnumber in range(0, sweepcount):
@@ -590,39 +590,39 @@ def describeBG(**kwargs):
     camP(c, 'LIP', 'Th', ['AMPA', 'NMDA'], ['all'], 0.035, [config['CxTh'], config['CxTh']])
 
     D1STR = makePop("D1STR", [GABA, [AMPA, 800, 4., 1.3], NMDA], cd_pre, getD1CellDefaults())
-    camP(c, 'D1STR', 'D1STR', 'GABA', ['syn'], .0485, .28)
-    camP(c, 'D1STR', 'D2STR', 'GABA', ['syn'], .0135, .28)
+    camP(c, 'D1STR', 'D1STR', 'GABA', ['syn'], .0485, .28)  #.485
+    camP(c, 'D1STR', 'D2STR', 'GABA', ['syn'], .0135, .28)  #.135
     camP(c, 'D1STR', 'GPi', 'GABA', ['syn'], .055, 1.05, name='direct')
 
     D2STR = makePop("D2STR", [GABA, [AMPA, 800, 4., 1.3], NMDA], cd_pre, getD2CellDefaults())
-    camP(c, 'D2STR', 'D2STR', 'GABA', ['syn'], .0485, .28)
-    camP(c, 'D2STR', 'D1STR', 'GABA', ['syn'], .015, .28*.8)
-    camP(c, 'D2STR', 'D1STR', 'GABA', ['anti'], .015, .28*.8)
+    camP(c, 'D2STR', 'D2STR', 'GABA', ['syn'], .0485, .28)     #.485
+    camP(c, 'D2STR', 'D1STR', 'GABA', ['syn'], .015, .28*.8)   #.15
+    camP(c, 'D2STR', 'D1STR', 'GABA', ['anti'], .015, .28*.8)  #.15
     camP(c, 'D2STR', 'GPeP', 'GABA', ['syn'], .74, 1.65, name='indirect')
 
     FSI = makePop("FSI", [GABA, [AMPA, 800, 1.55, 3.], NMDA], cd_pre, {'C': 0.2, 'Taum': 10})
-    camP(c, 'FSI', 'FSI', 'GABA', ['all'], .045, 1.15)
-    camP(c, 'FSI', 'D1STR', 'GABA', ['all'], .065, 1.2)
-    camP(c, 'FSI', 'D2STR', 'GABA', ['all'], .062, 1.2)
+    camP(c, 'FSI', 'FSI', 'GABA', ['all'], .045, 1.15)  #.85
+    camP(c, 'FSI', 'D1STR', 'GABA', ['all'], .065, 1.2) #.65
+    camP(c, 'FSI', 'D2STR', 'GABA', ['all'], .062, 1.2) #.62
 
-    GPeP = makePop("GPeP", [[GABA, 2000, 2, 2], [AMPA, 800, 2, 4.85], NMDA],
+    GPeP = makePop("GPeP", [[GABA, 2000, 2, 2], [AMPA, 800, 2., 4.85], NMDA],
                     cd_pre, {'N': 2500, 'g_T': 0.06})
-    camP(c, 'GPeP', 'GPeP', 'GABA', ['all'], 0.008, 1.5)
+    camP(c, 'GPeP', 'GPeP', 'GABA', ['all'], 0.008, 1.5)  #0.02
     camP(c, 'GPeP', 'STNE', 'GABA', ['syn'], 0.002, 0.4)
     camP(c, 'GPeP', 'GPi', 'GABA', ['syn'], 1, 0.0012)
 
     STNE = makePop("STNE", [GABA, [AMPA, 800, config['STNExtEff'],
                 config['STNExtFreq']], NMDA], cd_pre, {'N': 2500, 'g_T': 0.06})
-    camP(c, 'STNE', 'GPeP', ['AMPA', 'NMDA'], ['syn'], 0.00485, [0.07, 4])
-    camP(c, 'STNE', 'GPi', 'NMDA', ['all'], 1, 0.00314)
+    camP(c, 'STNE', 'GPeP', ['AMPA', 'NMDA'], ['syn'], 0.00485, [0.07, 4])  #0.0485
+    camP(c, 'STNE', 'GPi', 'NMDA', ['all'], 1, 0.00314)   #0.0314
 
     GPi = makePop("GPi", [ GABA, [AMPA, 800, config['GPiExtEff'], 0.8], NMDA], cd_pre)
     camP(c, 'GPi', 'Th', 'GABA', ['syn'], .85, 0.0067)
 
     Th = makePop('Th', [GABA, [AMPA, 800, 2.5, 2.2], NMDA], cd_pre)
-    camP(c, 'Th', 'D1STR', 'AMPA', ['syn'], 0.045, config['ThSTR'])
-    camP(c, 'Th', 'D2STR', 'AMPA', ['syn'], 0.045, config['ThSTR'])
-    camP(c, 'Th', 'FSI', 'AMPA', ['all'], 0.025, config['ThSTR'])
+    camP(c, 'Th', 'D1STR', 'AMPA', ['syn'], 0.045, config['ThSTR'])  #0.45
+    camP(c, 'Th', 'D2STR', 'AMPA', ['syn'], 0.045, config['ThSTR'])  #0.45
+    camP(c, 'Th', 'FSI', 'AMPA', ['all'], 0.025, config['ThSTR'])    #0.25
     camP(c, 'Th', 'LIP', 'NMDA', ['all'], 0.025, config['ThCx'], name='thcx')
 
     action_channel = makeChannel('choices', [GPi, STNE, GPeP, D1STR, D2STR, LIP, Th])
@@ -631,12 +631,12 @@ def describeBG(**kwargs):
 
     if config['rampingCTX']:
         camP(c, 'Th', 'LIPI', 'NMDA', ['all'], 0.25, config['ThCx'], name='thcxi')
-        camP(c, 'LIP', 'LIP', ['AMPA', 'NMDA'], ['all'], .13, [0.0127, 0.15])
-        camP(c, 'LIP', 'LIPI', ['AMPA', 'NMDA'], ['all'], .0725, [0.013, 0.125])
+        camP(c, 'LIP', 'LIP', ['AMPA', 'NMDA'], ['all'], .13, [0.00127, 0.015])
+        camP(c, 'LIP', 'LIPI', ['AMPA', 'NMDA'], ['all'], .0725, [0.0013, 0.0125])
 
         LIPI = makePop("LIPI", [GABA, [AMPA, 640, .6, 1.05], NMDA], cd_pre, { 'N': 620, 'C': 0.2, 'Taum': 10})
-        camP(c, 'LIPI', 'LIP', 'GABA', ['all'], .5, 1.05)
-        camP(c, 'LIPI', 'LIPI', 'GABA', ['all'], 1, 1.075)
+        camP(c, 'LIPI', 'LIP', 'GABA', ['all'], .5, 0.105)
+        camP(c, 'LIPI', 'LIPI', 'GABA', ['all'], 1, 0.1075)
 
         ineuronPops.append(LIPI)
 
@@ -662,23 +662,23 @@ def mcInfo(**kwargs):
     hts.append(makeHandle('sensory', 'LIP', ['choices'], 'AMPA', 800, 2.0))
     # hts.append(makeHandle('motor', 'M1', ['choices'], 'AMPA', 800, 2.0))
     # hts.append(makeHandle('cancel', 'STNE', ['choices'], 'AMPA', 800, 1.6))
-    hts.append(makeHandle('threshold', 'STNE', ['choices'], 'AMPA', 800, 1.65))
+    #hts.append(makeHandle('threshold', 'STNE', ['choices'], 'AMPA', 800, 1.65))
     hts.append(makeHandle('out', 'Th', ['choices']))
 
     hes = []
     houts = []
-    for i in range(0,2):
+    for i in range(0,5):
         hes.append(makeHandleEvent('reset', 0, 'sensory', [], config['BaseStim']))
         hes.append(makeHandleEvent('wrong stimulus', config['Start'], 'sensory', [], config['WrongStim']+0.0025*((i+1)%2)))
         hes.append(makeHandleEvent('right stimulus', config['Start'], 'sensory', [0], config['RightStim']+0.0025*(i%2)))
-        hes.append(makeHandleEvent('hyperdirect', config['Start'], 'threshold', [], config['STNExtFreq']+.75))
-        hes.append(makeHandleEvent('hyperdirect', config['Start'], 'threshold', [0], config['STNExtFreq']+.75))
+        #hes.append(makeHandleEvent('hyperdirect', config['Start'], 'threshold', [], config['STNExtFreq']+.75))
+        #hes.append(makeHandleEvent('hyperdirect', config['Start'], 'threshold', [0], config['STNExtFreq']+.75))
         hes.append(makeHandleEvent('dynamic cutoff', config['Start'], 'out', [0], config['Dynamic'], 'EndTrial', 1, 0.7)) #Left reward 0.7
         hes.append(makeHandleEvent('dynamic cutoff', config['Start'], 'out', [1], config['Dynamic'], 'EndTrial', 2, 0.1)) #Right reward 0.1
-        hes.append(makeHandleEvent('time limit', 600, etype='EndTrial'))
+        hes.append(makeHandleEvent('time limit', config['Start']+400, etype='EndTrial'))
 
         houts.append(makeHandleEvent('decisions', config['Start'], 'out', [], config['Dynamic'], 'EndTrial'))
-        houts.append(makeHandleEvent('decisions', 600, etype='EndTrial'))
+        houts.append(makeHandleEvent('decisions', config['Start']+400, etype='EndTrial'))
 
     # timelimit = 1800
     timelimit = 1200
@@ -950,8 +950,8 @@ def findOutputs2(trialdata, df=None):
 
 def setDirectory(prefix='autotest'):
     global directoryprefix
-    # directoryprefix = os.path.join(os.path.expanduser('~'), prefix, 'sweeps')
-    directoryprefix = os.path.join(_package_dir, prefix, 'sweeps')
+    directoryprefix = os.path.join(os.path.expanduser('~'), prefix, 'sweeps')
+    # directoryprefix = os.path.join(_package_dir, prefix, 'sweeps')
 
 
 def getDirectory(sweepnumber=0):
