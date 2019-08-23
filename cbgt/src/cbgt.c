@@ -139,16 +139,6 @@ typedef struct {
   float Efficacy; // change in the conductance due to a single spike (nS) (hence it is always positive, IPSP come out from rev pots)
   float LastConductance; // synaptic conductance when the last spike was emitted (useful for NMDA saturation), -1 if not NMDA (and hence no saturation)
   int TargetReceptor; // 0=AMPA, 1=NMDA, 2=GABA
-  //Parameters and variables for the short term depression
-  float D;                 // The fraction of available vesicle.
-  float pv;                // Each spike reduce D by the factor pv.
-  float tauD;             // The time constant for the speed of D recovery.
-
-  //Parameters and variables for the short term facilitation
-  float F;                 // The fraction of available vesicle.
-  float Fp;                // Each spike increase F by the factor Fp.
-  float tauF;             // The time constant for the speed of F decrease.
-
 } Synapse;
 
 // --------------------- NEURON structure -----------------------
@@ -294,10 +284,6 @@ typedef struct {
   float TargetReceptor; // 0=AMPA, ...
   float MeanEfficacy; // mean efficacy (for initialization)
   float EfficacySD; // Standard deviation of the efficacy distribution.
-  float pv;  // Each spike reduce the fraction D of available vesicle by the factor pv.
-  float tauD; // The time constant for the speed of D recovery.
-  float Fp;   // Each spike increase F by the factor Fp.
-  float tauF; // The time constant for the speed of F decrease.
 } SynPopDescr;
 
 typedef struct {
@@ -838,10 +824,6 @@ int DescribeNetwork() {
         report("Synapses targeting population: %s (%d)\n ",
                PopD[currenttarget].Label, currenttarget);
 
-        PopD[currentpop].SynP[PopD[currentpop].NTargetPops].pv = 0;
-        PopD[currentpop].SynP[PopD[currentpop].NTargetPops].tauD = 1000;
-        PopD[currentpop].SynP[PopD[currentpop].NTargetPops].Fp = 0;
-        PopD[currentpop].SynP[PopD[currentpop].NTargetPops].tauF = 5000;
         PopD[currentpop].SynP[PopD[currentpop].NTargetPops].EfficacySD = 0;
         continue;
       }
@@ -872,29 +854,6 @@ int DescribeNetwork() {
         aux = atof(s + 6);
         PopD[currentpop].SynP[PopD[currentpop].NTargetPops].EfficacySD = aux;
         report("  Efficacy SD=%f\n", (double)aux);
-      }
-
-      if (strncmp(s, "STDepressionP=", 14) == 0) {
-        aux = atof(s + 14);
-        PopD[currentpop].SynP[PopD[currentpop].NTargetPops].pv = aux;
-        report("  STDepressionP=%f mV\n", (double)aux);
-      }
-
-      if (strncmp(s, "STDepressionTau=", 16) == 0) {
-        aux = atof(s + 16);
-        PopD[currentpop].SynP[PopD[currentpop].NTargetPops].tauD = aux;
-        report("  STDepressionTau=%f mV\n", (double)aux);
-      }
-      if (strncmp(s, "STFacilitationP=", 16) == 0) {
-        aux = atof(s + 16);
-        PopD[currentpop].SynP[PopD[currentpop].NTargetPops].Fp = aux;
-        report("  STFacilitationP=%f mV\n", (double)aux);
-      }
-
-      if (strncmp(s, "STFacilitationTau=", 18) == 0) {
-        aux = atof(s + 18);
-        PopD[currentpop].SynP[PopD[currentpop].NTargetPops].tauF = aux;
-        report("  STFacilitationTau=%f mV\n", (double)aux);
       }
     } // currentpopflag
 
@@ -1112,8 +1071,7 @@ int ParseProtocol() {
 int GenerateNetwork() {
   int p, i, j, r, tp, tpi, tn, k, rd, na;
   int ni[MAXTN], tpni[MAXTN], trni[MAXTN];
-  float eff[MAXTN], ts[MAXTN], timets[MAXTN], D[MAXTN], pv[MAXTN], tauD[MAXTN],
-      F[MAXTN], Fp[MAXTN], tauF[MAXTN];
+  float eff[MAXTN], ts[MAXTN], timets[MAXTN];
   float efficacy;
 
   if (flagverbose) {
@@ -1283,15 +1241,6 @@ int GenerateNetwork() {
             } while (efficacy < 0);
             eff[na] = efficacy;  // efficacy
                                  // printf("%f\n",efficacy);
-            D[na] = 1;
-            pv[na] = PopD[p].SynP[tpi].pv;
-            tauD[na] = PopD[p].SynP[tpi].tauD;
-            Fp[na] = PopD[p].SynP[tpi].Fp;
-            if (Fp[na] == 0)
-              F[na] = 1;
-            else
-              F[na] = 0;
-            tauF[na] = PopD[p].SynP[tpi].tauF;
 
             if (strncmp(PopD[tp].ReceptorLabel[trni[na]], "NMDA", 4) == 0) {
               ts[na] = 0.;  // initial LastConductance (for NMDA saturation)
@@ -1311,12 +1260,6 @@ int GenerateNetwork() {
         Pop[p].Cell[i].Axonals[j].TargetNeuron = ni[j];
         Pop[p].Cell[i].Axonals[j].Efficacy = eff[j];
         Pop[p].Cell[i].Axonals[j].TargetReceptor = trni[j];
-        //Pop[p].Cell[i].Axonals[j].D = D[j];
-        Pop[p].Cell[i].Axonals[j].pv = pv[j];
-        //Pop[p].Cell[i].Axonals[j].tauD = tauD[j];
-        //Pop[p].Cell[i].Axonals[j].F = F[j];
-        Pop[p].Cell[i].Axonals[j].Fp = Fp[j];
-        //Pop[p].Cell[i].Axonals[j].tauF = tauF[j];
         Pop[p].Cell[i].Axonals[j].LastConductance = ts[j];
       }
     }  // end for i
@@ -1432,7 +1375,6 @@ int SimulateOneTimeStep() {
   float s, saturationfactor;
   float Vaux;  // auxiliary V: during the emission of the spike V is set
                // artificially to 0. This is bad for the reversal potential
-  // float D, F;
   float g_rb;  // rebound burst
   float g_adr, g_k, tau_max, alpha, beta, dv, n, tau_n, n_inif, efficacy,
       ExtMuS, ExtSigmaS;
@@ -1525,30 +1467,6 @@ int SimulateOneTimeStep() {
 
       // for each spike, loop over the target conductances
       for (j = 0; j < Pop[p].Cell[sourceneuron].Naxonals; j++) {
-        // // Short-term depression: Calculate the recovery of D first.
-        // //? EQUATION 7 for STD
-        // Pop[p].Cell[sourceneuron].Axonals[j].D =
-        //     1 -
-        //     (1 - Pop[p].Cell[sourceneuron].Axonals[j].D) *
-        //         exp(-(Time - Pop[p].Cell[sourceneuron].PTimeLastSpike) /
-        //             Pop[p].Cell[sourceneuron].Axonals[j].tauD);
-        // D = Pop[p].Cell[sourceneuron].Axonals[j].D;
-        // // D=1.0;
-        // // if(sourceneuron==20) printf(" %.1f %.1f .1%f .3%f \n",Time,
-        // // Pop[p].Cell[sourceneuron].PTimeLastSpike,
-        // // Pop[p].Cell[sourceneuron].tauD, Pop[p].Cell[sourceneuron].D);
-        //
-        // // Short-term facilitation: Calculate the F value
-        // //? EQUATION 7 for STF
-        // if (Pop[p].Cell[sourceneuron].Axonals[j].Fp == 0)
-        //   F = 1;
-        // else {
-        //   Pop[p].Cell[sourceneuron].Axonals[j].F =
-        //       Pop[p].Cell[sourceneuron].Axonals[j].F *
-        //       exp(-(Time - Pop[p].Cell[sourceneuron].PTimeLastSpike) /
-        //           Pop[p].Cell[sourceneuron].Axonals[j].tauF);
-        //   F = Pop[p].Cell[sourceneuron].Axonals[j].F;
-        // }
         tn = Pop[p].Cell[sourceneuron].Axonals[j].TargetNeuron;
         tp = Pop[p].Cell[sourceneuron].Axonals[j].TargetPop;
         tr = Pop[p].Cell[sourceneuron].Axonals[j].TargetReceptor;
@@ -1564,7 +1482,6 @@ int SimulateOneTimeStep() {
         if (Pop[p].Cell[sourceneuron].Axonals[j].LastConductance <
             0.) {  // NO NMDA (no saturation)
           Pop[tp].Cell[tn].LS[tr] +=
-              // D * F *
               pathway_strength;  // no saturation
         } else {
 // Now it should be correct. ALPHA factor to be determined (jump for every
@@ -1578,7 +1495,6 @@ int SimulateOneTimeStep() {
                   Pop[tp].Cell[tn].Tau[tr]);
 
           Pop[tp].Cell[tn].LS[tr] +=
-              // D * F *
               pathway_strength *
               (1. - Pop[p].Cell[sourceneuron].Axonals[j].LastConductance) *
               ALPHA;
@@ -1587,17 +1503,7 @@ int SimulateOneTimeStep() {
               ALPHA *
               (1. - Pop[p].Cell[sourceneuron].Axonals[j].LastConductance);
         }
-        // // Calculate the change of D and F due to the spike.
-        // Pop[p].Cell[sourceneuron].Axonals[j].F +=
-        //     Pop[p].Cell[sourceneuron].Axonals[j].Fp *
-        //     (1 - Pop[p].Cell[sourceneuron].Axonals[j].F);
-        // Pop[p].Cell[sourceneuron].Axonals[j].D -=
-        //     Pop[p].Cell[sourceneuron].Axonals[j].pv * F *
-        //     Pop[p].Cell[sourceneuron].Axonals[j].D;
-      }  // for j
-         //                if(sourceneuron==20) printf("
-         //                %f\n",Pop[p].Cell[sourceneuron].D);
-      // if(Pop[p].Cell[sourceneuron].D<=0) Pop[p].Cell[sourceneuron].D=0;
+      }
     }
   }
 
@@ -1958,11 +1864,12 @@ int SaveSpikes(int eventflag) {
     }
   }
 
-      // moved from inside the above loop
-      if (currentpt < buffersize - 1)
-        currentpt++;
-      else
-        currentpt = 0;
+  // moved from inside the above loop
+  if (currentpt < buffersize - 1) {
+    currentpt++;
+  } else {
+    currentpt = 0;
+  }
 
   if ((counter % STEPSFORSAVINGFREQS) == 0) fprintf(devfreqs, "\n");
   // if((counter % STEPSFORPRINTIGFREQS)==0) printf("\n");
