@@ -493,6 +493,72 @@ def getCellDefaults():
             'V_T': 120,
             'g_T': 0}
 
+def getD1CellDefaults():
+    return {
+                # not specific
+                'dpmn_tauDOP':2,         #2.0*10,  2*5
+                 #'dpmn_taug':3.0,
+                'dpmn_alpha':0.05,
+                'dpmn_DAt':0.0,              #0.2,
+                'dpmn_taum':4000.0*5,
+                # specific to D1
+                'dpmn_type': 1,
+                'dpmn_alphaw': 0,#55,          # 0.55
+                'dpmn_dPRE': 0.8,              #10,
+                'dpmn_dPOST':0.04,           #6,   0.087
+                'dpmn_tauE': 3*5,             #3*3,
+                'dpmn_tauPRE': 3*5,           #9*3,
+                'dpmn_tauPOST':1.2*5,        #1.2*3,
+                'dpmn_wmax':0.13,
+                'dpmn_a':1.0,
+                'dpmn_b':0.1,
+                'dpmn_c':0.05,
+                # explicit initial conditions
+                'dpmn_w':0.015,
+                'dpmn_Q1':0.0,                #0.5,
+                'dpmn_Q2':0.0,                #0.5,
+                # implicit initial conditions
+                'dpmn_m': 1.0,
+                'dpmn_E': 0.0,
+                'dpmn_DAp': 0.0,
+                'dpmn_APRE': 0.0,
+                'dpmn_APOST': 0.0,
+                'dpmn_XPRE': 0.0,
+                'dpmn_XPOST': 0.0}
+
+def getD2CellDefaults():
+    return {
+                # not specific
+                'dpmn_tauDOP': 2,          #2.0*10,  2*5
+                 #'dpmn_taug':3.0,
+                'dpmn_alpha':0.05,
+                'dpmn_DAt':0,               #0.25,
+                'dpmn_taum':4000.0*5,         #4000.0*5,
+                # specific to D1
+                'dpmn_type': 2,
+                'dpmn_alphaw': 0,#-45,     #-0.45
+                'dpmn_dPRE': 0.8,         #10,
+                'dpmn_dPOST': 0.04,      #6
+                'dpmn_tauE':3*5,              #3*3,
+                'dpmn_tauPRE':3*5,            #9*3,
+                'dpmn_tauPOST':1.2*5,         #1.2*3,
+                'dpmn_wmax':0.3*1,
+                'dpmn_a':0.5,
+                'dpmn_b':0.005,
+                'dpmn_c':0.05,
+                # explicit initial conditions
+                'dpmn_w':0.18*1,             #0.015,
+                'dpmn_Q1':0.0,                #0.5,
+                'dpmn_Q2':0.0,                #0.5,
+                # implicit initial conditions
+                'dpmn_m': 1.0,
+                'dpmn_E': 0.0,
+                'dpmn_DAp': 0.0,
+                'dpmn_APRE': 0.0,
+                'dpmn_APOST': 0.0,
+                'dpmn_XPRE': 0.0,
+                'dpmn_XPOST': 0.0}
+
 def getConProb():
 
     conProb = {'Cx': {'STR': .45,
@@ -632,7 +698,7 @@ def describeBG(**kwargs):
     LIP = makePop("LIP", [GABA,
                         [AMPA, 800, config['CxExtEff'],
                         config['CxExtFreq']], NMDA],
-                        cd_pre, {'N': 680})
+                        cd_pre, {'N': 680, 'dpmn_cortex': 1})
 
     camP(c, 'LIP', 'D1STR', ['AMPA', 'NMDA'], ['syn'], conProb['Cx']['STR'], conEff['Cx']['STR'], name='cxd')
     camP(c, 'LIP', 'D2STR',  ['AMPA', 'NMDA'], ['syn'], conProb['Cx']['STR'], conEff['Cx']['STR'], name='cxi')
@@ -642,10 +708,10 @@ def describeBG(**kwargs):
 
     D1STR = makePop("D1STR", [GABA,
                             [AMPA, 800, config['STRExtEff'],
-                            config['STRExtFreq']], NMDA], cd_pre)
+                            config['STRExtFreq']], NMDA], cd_pre, getD1CellDefaults())
     D2STR = makePop("D2STR", [GABA,
                             [AMPA, 800, config['STRExtEff'],
-                            config['STRExtFreq']], NMDA], cd_pre)
+                            config['STRExtFreq']], NMDA], cd_pre, getD2CellDefaults())
 
     camP(c, 'D1STR', 'D1STR', 'GABA', ['syn'], conProb['D1STR']['D1STR'], conEff['D1STR']['D1STR'])
     camP(c, 'D1STR', 'D2STR', 'GABA', ['syn'], conProb['D1STR']['D2STR'], conEff['D1STR']['D2STR'])
