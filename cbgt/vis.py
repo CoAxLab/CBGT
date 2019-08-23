@@ -276,7 +276,7 @@ def plot_trial_rates(t=0, cond='test', window=None):
             'GPeP0', 'GPi0', 'Th0']
     results = np.hstack(ng.readAllTrialResults(1,0,1))
     plotspikes = print_trial_acc_rt(results, t=t)
-    if plotspikes:
+    if plotspikes or True:
         ratedf = results[t]['popfreqs']
         frdf2 = get_firing_rates(results, window=window, cond=cond)
         ratedfT = get_single_trial_ratedf(frdf2, trial=t)
