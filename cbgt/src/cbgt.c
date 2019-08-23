@@ -1479,14 +1479,12 @@ int SimulateOneTimeStep() {
           pathway_strength = Pop[p].Cell[sourceneuron].Axonals[j].Efficacy;
         }
 
-        if (Pop[p].Cell[sourceneuron].Axonals[j].LastConductance <
-            0.) {  // NO NMDA (no saturation)
-          Pop[tp].Cell[tn].LS[tr] +=
-              pathway_strength;  // no saturation
+        if (Pop[p].Cell[sourceneuron].Axonals[j].LastConductance <  0.) {  // NO NMDA (no saturation)
+          Pop[tp].Cell[tn].LS[tr] += pathway_strength;  // no saturation
         } else {
-// Now it should be correct. ALPHA factor to be determined (jump for every
-// spike): now it is the maximum of a single spike
-// TEMPORARY
+          // Now it should be correct. ALPHA factor to be determined (jump for every
+          // spike): now it is the maximum of a single spike
+          // TEMPORARY
 #define ALPHA 0.6332
           // 0.6332 is the best value for the area at 55 Hz. Best value depends
           // on the frequency!!!
@@ -1494,14 +1492,11 @@ int SimulateOneTimeStep() {
               exp(-(Time - Pop[p].Cell[sourceneuron].PTimeLastSpike) /
                   Pop[tp].Cell[tn].Tau[tr]);
 
-          Pop[tp].Cell[tn].LS[tr] +=
-              pathway_strength *
-              (1. - Pop[p].Cell[sourceneuron].Axonals[j].LastConductance) *
-              ALPHA;
+          Pop[tp].Cell[tn].LS[tr] += pathway_strength *
+              ALPHA * (1. - Pop[p].Cell[sourceneuron].Axonals[j].LastConductance);
 
           Pop[p].Cell[sourceneuron].Axonals[j].LastConductance +=
-              ALPHA *
-              (1. - Pop[p].Cell[sourceneuron].Axonals[j].LastConductance);
+              ALPHA * (1. - Pop[p].Cell[sourceneuron].Axonals[j].LastConductance);
         }
       }
     }
