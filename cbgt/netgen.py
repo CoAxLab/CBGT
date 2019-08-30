@@ -113,22 +113,26 @@ def makeHandle(name, targ, path, receptor=None, con=0,
             'conmatrix': conmatrix}
 
 
-def makeHandleEvent(label, time, hname, hpath, freq, etype='ChangeExtFreq'):
+def makeHandleEvent(label, time, hname='', hpath='', freq='', etype='ChangeExtFreq', rewardflag='', rewardval=''):
     return {'label': label,
             'time': time,
             'hname': hname,
             'hpath': hpath,
             'freq': freq,
-            'etype': etype}
+            'etype': etype,
+            'rewardflag': rewardflag,
+            'rewardval': rewardval}
 
 
-def makeEvent(time, etype, label='', pop='', freq=0, receptor=''):
+def makeEvent(time, etype, label='', pop='', freq=0, receptor='', rewardflag='', rewardval=''):
     return {'time': time,
             'etype': etype,
             'label': label,
             'pop': pop,
             'receptor': receptor,
-            'freq': freq}
+            'freq': freq,
+            'rewardflag': rewardflag,
+            'rewardval': rewardval}
 
 
 def constructCopies(dims, path, index=0):
@@ -280,21 +284,30 @@ def constructHandleCopies(dims, handletypes, poppaths, popcopylist):
 
 
 def constructEvents(handleevent, handles, eventlist):
-    for handle in handles:
-        if handle['name'] == handleevent['hname']:
-            valid = True
-            for spec, val in zip(handleevent['hpath'], handle['pathvals']):
-                if spec != -1 and spec != val:
-                    valid = False
-            if valid:
-                for tract in handle['targets']:
-                    if handleevent['etype'] == 'ChangeExtFreq':
-                        event = makeEvent(handleevent['time'], 'ChangeExtFreq', handleevent['label'],
-                                          tract['target'], handleevent['freq'], tract['data']['TargetReceptor'])
-                    if handleevent['etype'] == 'EndTrial':
-                        event = makeEvent(handleevent['time'], 'EndTrial', handleevent['label'],
-                                          tract['target'], handleevent['freq'])
-                    eventlist.append(event)
+    if handleevent['hname'] == '':
+        if handleevent['etype'] == 'DivideStage':
+            event = makeEvent(handleevent['time'], 'DivideStage')
+            eventlist.append(event)
+        if handleevent['etype'] == 'EndTrial':
+            event = makeEvent(handleevent['time'], 'EndTrial')
+            eventlist.append(event)
+    else:
+        for handle in handles:
+            if handle['name'] == handleevent['hname']:
+                valid = True
+                for spec, val in zip(handleevent['hpath'], handle['pathvals']):
+                    if spec != -1 and spec != val:
+                        valid = False
+                if valid:
+                    for tract in handle['targets']:
+                        if handleevent['etype'] == 'ChangeExtFreq':
+                            event = makeEvent(handleevent['time'], 'ChangeExtFreq', handleevent['label'],
+                                              tract['target'], handleevent['freq'], tract['data']['TargetReceptor'])
+                        if handleevent['etype'] == 'EndTrial':
+                            event = makeEvent(handleevent['time'], 'EndTrial', handleevent['label'],
+                                              tract['target'], handleevent['freq'], '',
+                                              handleevent['rewardflag'], handleevent['rewardval'])
+                        eventlist.append(event)
 
 
 def printNetData(poppaths, popcopylist, handles):
@@ -366,6 +379,10 @@ def writePro(eventlist):
             f.write('Receptor: ' + event['receptor'] + '\n')
         if event['pop'] != '':
             f.write('FreqExt=' + str(event['freq']) + '\n')
+        if event['rewardflag'] != '':
+            f.write('RewardFlag=' + str(event['rewardflag']) + '\n')
+        if event['rewardval'] != '':
+            f.write('RewardVal=' + str(event['rewardval']) + '\n')
         f.write('\nEndEvent\n\n')
     f.flush()
     f.close()
@@ -503,18 +520,18 @@ def getD1CellDefaults():
                 'dpmn_taum':4000.0*5,
                 # specific to D1
                 'dpmn_type': 1,
-                'dpmn_alphaw': 0,#55,          # 0.55
+                'dpmn_alphaw': 55,          # 0.55
                 'dpmn_dPRE': 0.8,              #10,
                 'dpmn_dPOST':0.04,           #6,   0.087
                 'dpmn_tauE': 3*5,             #3*3,
                 'dpmn_tauPRE': 3*5,           #9*3,
                 'dpmn_tauPOST':1.2*5,        #1.2*3,
-                'dpmn_wmax':0.13,
+                'dpmn_wmax':0.3,
                 'dpmn_a':1.0,
                 'dpmn_b':0.1,
                 'dpmn_c':0.05,
                 # explicit initial conditions
-                'dpmn_w':0.015,
+                'dpmn_w':0.2*.7,
                 'dpmn_Q1':0.0,                #0.5,
                 'dpmn_Q2':0.0,                #0.5,
                 # implicit initial conditions
@@ -536,18 +553,18 @@ def getD2CellDefaults():
                 'dpmn_taum':4000.0*5,         #4000.0*5,
                 # specific to D1
                 'dpmn_type': 2,
-                'dpmn_alphaw': 0,#-45,     #-0.45
+                'dpmn_alphaw': -45,     #-0.45
                 'dpmn_dPRE': 0.8,         #10,
                 'dpmn_dPOST': 0.04,      #6
                 'dpmn_tauE':3*5,              #3*3,
                 'dpmn_tauPRE':3*5,            #9*3,
                 'dpmn_tauPOST':1.2*5,         #1.2*3,
-                'dpmn_wmax':0.3*1,
+                'dpmn_wmax':0.3,
                 'dpmn_a':0.5,
                 'dpmn_b':0.005,
                 'dpmn_c':0.05,
                 # explicit initial conditions
-                'dpmn_w':0.18*1,             #0.015,
+                'dpmn_w':0.2*.7,             #0.015,
                 'dpmn_Q1':0.0,                #0.5,
                 'dpmn_Q2':0.0,                #0.5,
                 # implicit initial conditions
@@ -654,7 +671,7 @@ def getNetworkDefaults():
               'GPiExtFreq': 0.8,
 
               'GPeExtEff': 2,
-              'GPeExtFreq': 5, #4.85,
+              'GPeExtFreq': 4, #5, #4.85,
 
               'ThExtEff': 2.5,
               'ThExtFreq': 2.2,
@@ -818,18 +835,21 @@ def mcInfo(**kwargs):
     hts.append(makeHandle('out', 'Th', ['choices']))
 
     hes = []
-    # hes.append(makeHandleEvent('reset', 0, 'sensory', [], config['BaseStim']))
-    hes.append(makeHandleEvent('reset', config['Start'], 'sensory', [], config['BaseStim']))
-    # hes.append(makeHandleEvent('reset', 0, 'motor', [], config['BaseStim']))
-    hes.append(makeHandleEvent('wrong stimulus', config['Start'], 'sensory', [], config['WrongStim']))
-    hes.append(makeHandleEvent('right stimulus', config['Start'], 'sensory', [0], config['RightStim']))
-    hes.append(makeHandleEvent('hyperdirect', config['Start'], 'threshold', [], config['STNExtFreq']+.75))
-    hes.append(makeHandleEvent('hyperdirect', config['Start'], 'threshold', [0], config['STNExtFreq']+.75))
-    hes.append(makeHandleEvent('dynamic cutoff', config['Start'], 'out', [], config['Dynamic'], 'EndTrial'))
-
     houts = []
-    houts.append(makeHandleEvent('decision made',
-                                 config['Start'], 'out', [], config['Dynamic']))
+    for i in range(0,5):
+        hes.append(makeHandleEvent('reset', 0, 'sensory', [], config['BaseStim']))
+        hes.append(makeHandleEvent('wrong stimulus', config['Start'], 'sensory', [], config['WrongStim']))
+        hes.append(makeHandleEvent('right stimulus', config['Start'], 'sensory', [0], config['RightStim']))
+        #hes.append(makeHandleEvent('hyperdirect', config['Start'], 'threshold', [], config['STNExtFreq']+.75))
+        #hes.append(makeHandleEvent('hyperdirect', config['Start'], 'threshold', [0], config['STNExtFreq']+.75))
+        #hes.append(makeHandleEvent('dynamic cutoff', config['Start'], 'out', [1], config['Dynamic'], 'EndTrial', 2, 0.1)) #Right reward 0.1
+        hes.append(makeHandleEvent('dynamic cutoff', config['Start'], 'out', [0], config['Dynamic'], 'EndTrial', 1, 0.7)) #Left reward 0.7
+        hes.append(makeHandleEvent('dynamic cutoff', config['Start'], 'out', [1], config['Dynamic'], 'EndTrial', 2, 0.1)) #Right reward 0.1
+        hes.append(makeHandleEvent('time limit', config['Start']+800, etype='EndTrial'))
+
+        houts.append(makeHandleEvent('decision made', config['Start'], 'out', [], config['Dynamic'], 'EndTrial'))
+        houts.append(makeHandleEvent('decision made', config['Start']+800, etype='EndTrial'))
+
 
     # timelimit = 1800
     timelimit = 1200
@@ -929,7 +949,7 @@ def configureExperiment(**kwargs):
     eventlist = []
     for he in handleeventlist:
         constructEvents(he, handles, eventlist)
-    eventlist.append(makeEvent(timelimit, 'EndTrial'))
+    #eventlist.append(makeEvent(timelimit, 'EndTrial'))
 
     # write files
     # printNetData(poppaths, popcopylist, handles)
@@ -950,43 +970,44 @@ def configureExperiment(**kwargs):
     return trialdata
 
 
-def readTrialResult(sweepnumber, trial):
+def readTrialResult(sweepnumber, trial, datastreams = ['popfreqs']):
     directory = getDirectory(sweepnumber)
-    f = open(directory + '/popfreqs' + str(trial) + '.dat', "r")
-    columns = []
-    rawdata = []
-    lines = f.readlines()
-    for i in range(len(lines)):
-        if i == 0:
-            columns = lines[i].strip().split("\t")
-            for colnum in range(len(columns)):
-                rawdata.append([])
-        if i > 0:
-            data = lines[i].strip().split("\t")
-            if(float(data[0]) > 0):
-                for colnum, val in zip(range(len(columns)), data):
-                    rawdata[colnum].append(val)
-    labeled = {}
-    for colnum in range(len(columns)):
-        labeled[columns[colnum]] = np.array(rawdata[colnum], dtype='float32')
-
     g = open(directory + '/network.pickle', 'rb')
     trialdata = pickle.load(g)
-    trialdata['popfreqs'] = pd.DataFrame(labeled)
+    for datastream in datastreams:
+        f = open(directory + '/' + datastream + str(trial) + '.dat', "r")
+        columns = []
+        rawdata = []
+        lines = f.readlines()
+        for i in range(len(lines)):
+            if i == 0:
+                columns = lines[i].strip().split("\t")
+                for colnum in range(len(columns)):
+                    rawdata.append([])
+            if i > 0:
+                data = lines[i].strip().split("\t")
+                if(float(data[0]) > 0):
+                    for colnum, val in zip(range(len(columns)), data):
+                        rawdata[colnum].append(val)
+        labeled = {}
+        for colnum in range(len(columns)):
+            labeled[columns[colnum]] = np.array(rawdata[colnum], dtype='float32')
+
+        trialdata[datastream] = pd.DataFrame(labeled)
 
     return(trialdata)
 
 
-def readAllTrialResults(trials, offset=0, sweepcount=1):
+def readAllTrialResults(trials, offset=0, sweepcount=1, datastreams = ['popfreqs']):
     allresults = []
-    trialID = lambda f: int(f.split('popfreqs')[1].split('.')[0])
+    trialID = lambda f: int(f.split(datastreams[0])[1].split('.')[0])
 
     for sweepnumber in range(sweepcount):
         results = []
         files = os.listdir(getDirectory(sweepnumber))
-        trials = [trialID(f) for f in files if 'popfreqs' in f]
+        trials = [trialID(f) for f in files if datastreams[0] in f]
         for trial in trials:
-            results.append(readTrialResult(sweepnumber, trial + offset))
+            results.append(readTrialResult(sweepnumber, trial + offset, datastreams))
         allresults.append(results)
     return allresults
 
@@ -1024,7 +1045,82 @@ def findOutputs(trialdata, df=None):
     trialdata['outputs'] = outputs
     return outputs
 
-
+def findOutputs2(trialdata, df=None):
+    if df is None:
+        df = trialdata['popfreqs']
+    outputs = {}
+    outevents = trialdata['outputevents']
+    for handleevent in outevents:
+        outputs[handleevent['label']] = []
+    curstage = 0
+    stagestart = 0
+    firstrelevantevent = 0
+    lastrelevantevent = 0
+    for e in range(firstrelevantevent, len(outevents)):
+        handleevent = outevents[e]
+        # print('he start ' + str(handleevent['time']))
+        if len(outputs[handleevent['label']]) <= curstage:
+            output = {'time': None,
+                      'start': handleevent['time'],
+                      'delay': None,
+                      'pathvals': None,
+                      'threshold': handleevent['freq']}
+            outputs[handleevent['label']].append(output)
+            # print('test ' + handleevent['label'])
+        if e == lastrelevantevent and not (handleevent['etype'] == 'EndTrial' and handleevent['hname'] == ''):
+            lastrelevantevent += 1
+    lastrelevantevent += 1
+    for i in range(0, df.shape[0]):
+        curtime = df.at[i, 'Time (ms)']
+        needsmorestaging = 0
+        # print(firstrelevantevent, lastrelevantevent, curtime)
+        for e in range(firstrelevantevent, lastrelevantevent):
+            handleevent = outevents[e]
+            output = outputs[handleevent['label']][curstage]
+            if curtime < handleevent['time'] + stagestart:
+                continue
+            if handleevent['etype'] == 'EndTrial' and handleevent['hname'] == '':
+                if curtime >= output['start'] + stagestart:
+                    if output['time'] is None:
+                        output['time'] = curtime
+                    needsmorestaging = 1
+                    # print('timeout triggered')
+                    continue
+            for handle in trialdata['handles']:
+                if handle['name'] == handleevent['hname']:
+                    valid = True
+                    for spec, val in zip(handleevent['hpath'], handle['pathvals']):
+                        if spec != -1 and spec != val:
+                            valid = False
+                    if valid:
+                        for tract in handle['targets']:
+                            if df.at[i, tract['target']] >= output['threshold']:
+                                if output['time'] is None:
+                                    output['time'] = curtime
+                                    output['delay'] = curtime - stagestart - output['start']
+                                    output['pathvals'] = handle['pathvals']
+                                    if handleevent['etype'] == 'EndTrial':
+                                        needsmorestaging = 1
+                                        # print('threshold triggered')
+        if needsmorestaging == 1:
+            curstage += 1
+            stagestart = curtime
+            firstrelevantevent = lastrelevantevent
+            for e in range(firstrelevantevent, len(outevents)):
+                # print(e)
+                handleevent = outevents[e]
+                if len(outputs[handleevent['label']]) <= curstage:
+                    output = {'time': None,
+                              'start': handleevent['time'],
+                              'delay': None,
+                              'pathvals': None,
+                              'threshold': handleevent['freq']}
+                    outputs[handleevent['label']].append(output)
+                if e  == lastrelevantevent and not (handleevent['etype'] == 'EndTrial' and handleevent['hname'] == ''):
+                    lastrelevantevent += 1
+            lastrelevantevent += 1
+    trialdata['outputs'] = outputs
+    return outputs
 
 def setDirectory(prefix='autotest'):
     global directoryprefix
