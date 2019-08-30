@@ -1498,6 +1498,11 @@ int SimulateOneTimeStep() {
           Pop[p].Cell[sourceneuron].Axonals[j].LastConductance +=
               ALPHA * (1. - Pop[p].Cell[sourceneuron].Axonals[j].LastConductance);
         }
+
+        // dopaminergic learning
+        if (Pop[p].Cell[sourceneuron].dpmn_cortex && Pop[tp].Cell[tn].dpmn_type) {
+          Pop[tp].Cell[tn].dpmn_XPRE = 1; // presynaptic from perspective of target neuron
+        }
       }
     }
   }
@@ -1939,7 +1944,7 @@ void SaveWeights() {
       }
       avg /= Pop[p].Ncells;
       fprintf(devfreqs, "%f\t",
-              (avg/0.015) );  // debugging dopamine
+              (avg/1.0) );  // debugging dopamine
     }
     fprintf(devfreqs, "\n");
     fflush(devfreqs);
