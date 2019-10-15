@@ -238,6 +238,9 @@ typedef struct {
   float dpmn_m;       // motivation, modulates strength of dopamne level
   float dpmn_taum;    // decay of motivation
   float dpmn_Q2;      // expected reward of action 2
+  float dpmn_ratio;   // ampa to nmda plasticity ratio, 1 = all ampa, 0 = all nmda
+  float dpmn_implied;   // assumption of how much NMDA = 1 unit of AMPA
+  float dpmn_winit;   // initial weight value
 
 } Neuron;
 
@@ -372,6 +375,9 @@ typedef struct {
   float dpmn_m;
   float dpmn_taum;
   float dpmn_Q2;
+  float dpmn_ratio;
+  float dpmn_implied;
+  float dpmn_winit;
 
 } PopDescr;
 
@@ -738,8 +744,11 @@ int DescribeNetwork() {
       popparams[44] = (PairFloat){"dpmn_m", &PopD[currentpop].dpmn_m};
       popparams[45] = (PairFloat){"dpmn_taum", &PopD[currentpop].dpmn_taum};
       popparams[46] = (PairFloat){"dpmn_Q2", &PopD[currentpop].dpmn_Q2};
+      popparams[47] = (PairFloat){"dpmn_ratio", &PopD[currentpop].dpmn_ratio};
+      popparams[48] = (PairFloat){"dpmn_implied", &PopD[currentpop].dpmn_implied};
+      popparams[49] = (PairFloat){"dpmn_winit", &PopD[currentpop].dpmn_winit};
 
-      for (paramnum = 0; paramnum < 47; paramnum++) {
+      for (paramnum = 0; paramnum < 50; paramnum++) {
         PairFloat param;
         param = popparams[paramnum];
         int length;
@@ -1178,6 +1187,9 @@ int GenerateNetwork() {
       Pop[p].Cell[i].dpmn_m = PopD[p].dpmn_m;
       Pop[p].Cell[i].dpmn_taum = PopD[p].dpmn_taum;
       Pop[p].Cell[i].dpmn_Q2 = PopD[p].dpmn_Q2;
+      Pop[p].Cell[i].dpmn_ratio = PopD[p].dpmn_ratio;
+      Pop[p].Cell[i].dpmn_implied = PopD[p].dpmn_implied;
+      Pop[p].Cell[i].dpmn_winit = PopD[p].dpmn_winit;
 
       // receptors
       Pop[p].Cell[i].Nreceptors = PopD[p].Nreceptors;
@@ -1272,83 +1284,7 @@ int GenerateNetwork() {
 }
 
 
-// same as generate network, but it does not allocate memory. Used in the multitrial mode
-// (to change the network from trial to trial, the only way is to start again with a different seed)
-// This function is not used anymore in the current version.
 
-int InitializeNetwork() {
-  int p, i, j, r, tp, tpi, tn, k, rd, na;
-  int ni[MAXTN], tpni[MAXTN], trni[MAXTN];
-  float eff[MAXTN], ts[MAXTN], timets[MAXTN];
-
-  if (flagverbose) {
-    report("\nGenerating network...\n");
-  }
-
-  // loop over all the populations
-  for (p = 0; p < Npop; p++) {
-    strcpy(Pop[p].Label, PopD[p].Label);
-    if (flagverbose) {
-      report("Population %2d: %s\n", p, Pop[p].Label);
-    }
-
-    for (rd = 0; rd < PopD[p].Nreceptors; rd++) {
-      // external input: compute first the asymptoic mu and sigma (m,s in nphys
-      // notation) of the conductances
-      // CAREFUL: PROTOCOL FILE SHOULD BE REREAD TO INITIALIZE CORRECTLY EXT
-      // FREQS (THEY MIGHT HAVE BEEN CHANGED IN THE PREVIOUS TRIAL
-
-      PopD[p].MeanExtMuS[rd] = PopD[p].FreqExt[rd] * .001 *
-                               PopD[p].MeanExtEff[rd] * PopD[p].MeanExtCon[rd] *
-                               PopD[p].Tau[rd];
-      PopD[p].MeanExtSigmaS[rd] =
-          sqrt(PopD[p].Tau[rd] * .5 * PopD[p].FreqExt[rd] * .001 *
-               PopD[p].MeanExtEff[rd] * PopD[p].MeanExtEff[rd] *
-               PopD[p].MeanExtCon[rd]);
-      report("Pop %d Conductance: %d m=%f nS s=%f nS\n", p, rd,
-             PopD[p].MeanExtMuS[rd], PopD[p].MeanExtSigmaS[rd]);
-    }
-
-    // init auxiliary variables like the tables of spikes
-    if (delayindt > MAXDELAYINDT) {
-      printf("ERROR: delay too long. Increase MAXDELAYINDT and recompile\n");
-      return -1;
-    }
-    Pop[p].CTableofSpikes = delayindt;
-    Pop[p].DTableofSpikes = 0;
-    for (k = 0; k < MAXDELAYINDT; k++) {
-      Pop[p].NTableofSpikes[k] = 0;
-    }
-
-    // init     neurons and their axonal trees
-    for (i = 0; i < Pop[p].Ncells; i++) {
-      for (r = 0; r < Pop[p].Cell[i].Nreceptors; r++) {
-        Pop[p].Cell[i].LS[r] = 0.;
-
-        // external input
-        Pop[p].Cell[i].ExtMuS[r] = PopD[p].MeanExtMuS[r];
-        Pop[p].Cell[i].ExtSigmaS[r] = PopD[p].MeanExtSigmaS[r];
-        Pop[p].Cell[i].ExtS[r] = 0.;
-      }  // end for r
-
-      // init
-      Pop[p].Cell[i].V = Pop[p].Cell[i].RestPot;
-      Pop[p].Cell[i].Ca = 0;
-      Pop[p].Cell[i].RefrState = 0;
-      Pop[p].Cell[i].TimeLastSpike =
-          -10000.;  // time of the last emitted spike (for NMDA saturation)
-      Pop[p].Cell[i].PTimeLastSpike = -10000.;  // time of spike emitted
-                                                // previous the last emitted
-                                                // spiek (for NMDA saturation)
-
-    }  // end for i
-  }    // end for p
-
-  if (flagverbose) {
-    report("Network initialized\n");
-    fflush(stdout);
-  }
-}
 
 
 
@@ -1378,6 +1314,7 @@ int SimulateOneTimeStep() {
   float g_rb;  // rebound burst
   float g_adr, g_k, tau_max, alpha, beta, dv, n, tau_n, n_inif, efficacy,
       ExtMuS, ExtSigmaS;
+  float pathway_strength; // for dpmn_w
   static float freq[MAXP][MAXRECEPTORS];
   static float last_freq[MAXP][MAXRECEPTORS];
   static int flag = 0;
@@ -1471,13 +1408,17 @@ int SimulateOneTimeStep() {
         tp = Pop[p].Cell[sourceneuron].Axonals[j].TargetPop;
         tr = Pop[p].Cell[sourceneuron].Axonals[j].TargetReceptor;
 
-        float pathway_strength;
-
-        if (Pop[p].Cell[sourceneuron].dpmn_cortex && Pop[tp].Cell[tn].dpmn_type && tr == AMPA) {
-          pathway_strength = Pop[tp].Cell[tn].dpmn_w;
-        } else {
-          pathway_strength = Pop[p].Cell[sourceneuron].Axonals[j].Efficacy;
+        pathway_strength = Pop[p].Cell[sourceneuron].Axonals[j].Efficacy;
+        if (Pop[p].Cell[sourceneuron].dpmn_cortex > 0 && Pop[tp].Cell[tn].dpmn_type > 0 && (tr == AMPA)) { // Pop[p].Cell[sourceneuron].dpmn_cortex > 0 && Pop[tp].Cell[tn].dpmn_type > 0 &&
+          pathway_strength = Pop[tp].Cell[tn].dpmn_w * Pop[tp].Cell[tn].dpmn_ratio / Pop[tp].Cell[tn].dpmn_implied;
         }
+        if (Pop[p].Cell[sourceneuron].dpmn_cortex > 0 && Pop[tp].Cell[tn].dpmn_type > 0 && (tr == NMDA)) { // Pop[p].Cell[sourceneuron].dpmn_cortex > 0 && Pop[tp].Cell[tn].dpmn_type > 0 &&
+          pathway_strength *= Pop[tp].Cell[tn].dpmn_w / Pop[tp].Cell[tn].dpmn_winit * (1 - Pop[tp].Cell[tn].dpmn_ratio);
+        }
+
+        //if (tr == NMDA) { // Pop[p].Cell[sourceneuron].dpmn_cortex > 0 &&
+        //  pathway_strength = 0;//Pop[tp].Cell[tn].dpmn_w;
+        //}
 
         if (Pop[p].Cell[sourceneuron].Axonals[j].LastConductance <  0.) {  // NO NMDA (no saturation)
           Pop[tp].Cell[tn].LS[tr] += pathway_strength;  // no saturation
@@ -1550,9 +1491,9 @@ int SimulateOneTimeStep() {
                          Pop[p].Cell[i].Vadr_s));
 
       // potassium outward rectifying current
-      if (Pop[p].Cell[i].g_k_max == 0)  // No outward current
+      if (Pop[p].Cell[i].g_k_max == 0) { // No outward current
         g_k = 0;
-      else {  // with outward current
+      } else {  // with outward current
               //  g_k =
               //  Pop[p].Cell[i].g_k_max/(1+exp((-Pop[p].Cell[i].V+Pop[p].Cell[i].Vk_h)/Pop[p].Cell[i].Vk_s));
         tau_max = Pop[p].Cell[i].tau_k_max;
@@ -1570,7 +1511,7 @@ int SimulateOneTimeStep() {
       }
 
       // decay
-      if (Pop[p].Cell[i].g_ahp == 0)  // No spike-frequency adaptation
+      if (Pop[p].Cell[i].g_ahp == 0) { // No spike-frequency adaptation
         // EQUATION 1
         Pop[p].Cell[i].V +=
             -dt *
@@ -1581,7 +1522,7 @@ int SimulateOneTimeStep() {
              g_k / Pop[p].Cell[i].C *
                  (Pop[p].Cell[i].V - Pop[p].Cell[i].ADRRevPot) +
              g_rb / Pop[p].Cell[i].C * (Pop[p].Cell[i].V - Pop[p].Cell[i].V_T));
-      else  // with spike-frequency adaptation (the factor 1/1000 is needed to
+      } else { // with spike-frequency adaptation (the factor 1/1000 is needed to
             // convert nS/nF to 1/ms)
         // EQUATION 1
         Pop[p].Cell[i].V +=
@@ -1595,12 +1536,15 @@ int SimulateOneTimeStep() {
              g_k / Pop[p].Cell[i].C *
                  (Pop[p].Cell[i].V - Pop[p].Cell[i].ADRRevPot) +
              g_rb / Pop[p].Cell[i].C * (Pop[p].Cell[i].V - Pop[p].Cell[i].V_T));
+      }
 
       // [Ca] decay -- 1st order approximation
       Pop[p].Cell[i].Ca += -Pop[p].Cell[i].Ca * dt / Pop[p].Cell[i].tau_ca;
 
       Vaux = Pop[p].Cell[i].V;
-      if (Vaux > Pop[p].Cell[i].Threshold) Vaux = Pop[p].Cell[i].Threshold;
+      if (Vaux > Pop[p].Cell[i].Threshold) {
+        Vaux = Pop[p].Cell[i].Threshold;
+      }
 
       // now add the synaptic currents (the factor 1/1000 is needed to convert
       // nS/nF to 1/ms)
@@ -1610,7 +1554,7 @@ int SimulateOneTimeStep() {
           Pop[p].Cell[i].V += dt * (Pop[p].Cell[i].RevPots[r] - Vaux) * .001 *
                               (Pop[p].Cell[i].LS[r] + Pop[p].Cell[i].ExtS[r]) /
                               Pop[p].Cell[i].C /
-                              (1. + exp(-0.062 * Vaux) / 3.57);
+                              (1. + exp(-0.062 * Vaux / 3.57));
 
           /*		// DEBUG DEBUG DEBUG
           if(p==1 && i==0) {
