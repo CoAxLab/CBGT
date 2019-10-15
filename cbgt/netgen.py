@@ -455,14 +455,17 @@ def compileAndRunSweepALL(trials=1, offset=0, sweepcount=1, parallel=4):
         simfile = os.path.join(getDirectory(sweepnumber), 'sim')
         call('{} -o {} cbgt.c rando2.h -lm -std=c99'.format(compiler, simfile), shell=True, cwd=c_dir)
 
-    for sweepnumber in range(0, sweepcount):
-        for trial in range(0, trials):
+    threadcounter = 1
+
+    for trial in range(0, trials):
+        for sweepnumber in range(0, sweepcount):
             outdir = getDirectory(sweepnumber)
             seed = np.random.randint(0, 1000)
-            if (trial * sweepcount + sweepnumber + 1) % parallel == 0:
+            if threadcounter % parallel == 0:
                 call('./sim -ns -n{} -s{}'.format(str(trial+offset), str(seed+trial+offset)), shell=True, cwd=outdir)
             else:
                 Popen('./sim -ns -n{} -s{}'.format(str(trial+offset), str(seed+trial+offset)), shell=True, cwd=outdir)
+            threadcounter += 1
 
 
 def compileAndRunSweepALL_NEW(trials=1, offset=0, sweepcount=1, parallel=4):
@@ -515,7 +518,7 @@ def getD1CellDefaults():
                 # not specific
                 'dpmn_tauDOP':2,         #2.0*10,  2*5
                  #'dpmn_taug':3.0,
-                'dpmn_alpha':0.05,
+                'dpmn_alpha':0.05*10,
                 'dpmn_DAt':0.0,              #0.2,
                 'dpmn_taum':4000.0*5,
                 # specific to D1
@@ -531,7 +534,10 @@ def getD1CellDefaults():
                 'dpmn_b':0.1,
                 'dpmn_c':0.05,
                 # explicit initial conditions
-                'dpmn_w':0.2*.7,
+                'dpmn_w':0.2*.9,
+                'dpmn_winit':0.2*.9,
+                'dpmn_ratio':1.0,
+                'dpmn_implied':1.0,
                 'dpmn_Q1':0.0,                #0.5,
                 'dpmn_Q2':0.0,                #0.5,
                 # implicit initial conditions
@@ -548,7 +554,7 @@ def getD2CellDefaults():
                 # not specific
                 'dpmn_tauDOP': 2,          #2.0*10,  2*5
                  #'dpmn_taug':3.0,
-                'dpmn_alpha':0.05,
+                'dpmn_alpha':0.05*10,
                 'dpmn_DAt':0,               #0.25,
                 'dpmn_taum':4000.0*5,         #4000.0*5,
                 # specific to D1
@@ -564,7 +570,10 @@ def getD2CellDefaults():
                 'dpmn_b':0.005,
                 'dpmn_c':0.05,
                 # explicit initial conditions
-                'dpmn_w':0.2*.7,             #0.015,
+                'dpmn_w':0.2*.9,             #0.015,
+                'dpmn_winit':0.2*.9,
+                'dpmn_ratio':1.0,
+                'dpmn_implied':1.0,
                 'dpmn_Q1':0.0,                #0.5,
                 'dpmn_Q2':0.0,                #0.5,
                 # implicit initial conditions
@@ -609,7 +618,7 @@ def getConProb():
 def getConEff(**kwargs):
 
     conEff = {'Cx': {'STR': [0.2, 0.2],
-                    'FSI': 0.16,
+                    'FSI': 0.16*.5,
                     'Th': [0.0335, 0.0335]},
                 'D1STR': {'D1STR': .28,
                           'D2STR': .28,
@@ -619,8 +628,8 @@ def getConEff(**kwargs):
                           'D2STR_syn': .28,
                           'GPeP': 1.65},
                 'FSI':  {'FSI': 1.15,
-                        'D1STR': 1.23,
-                        'D2STR': 1.23},
+                        'D1STR': 1.23*.8,
+                        'D2STR': 1.23*.8},
                 'GPeP': {'GPeP': 1.5,
                         'STN': 0.4,
                         'GPi': 0.012},
@@ -662,7 +671,7 @@ def getNetworkDefaults():
               'STRExtFreq': 1.3,
 
               'FSIExtEff': 1.55,
-              'FSIExtFreq': 3.,
+              'FSIExtFreq': 3.*1.2,
 
               'STNExtEff': 1.60,
               'STNExtFreq': 4.45,
@@ -679,7 +688,9 @@ def getNetworkDefaults():
               'BaseStim': [0.00],
               'Stim': [2.6],
               'Dynamic': [30.0],
-              'rampingCTX': True}
+              'rampingCTX': True,
+              'dpmn_ratio':0,
+              'dpmn_implied':1}
 
     return config
 
@@ -722,13 +733,20 @@ def describeBG(**kwargs):
     camP(c, 'LIP', 'FSI', 'AMPA', ['all'], conProb['Cx']['FSI'], conEff['Cx']['FSI'], name='cxfsi')
     camP(c, 'LIP', 'Th', ['AMPA', 'NMDA'], ['all'], conProb['Cx']['Th'], conEff['Cx']['Th'])
 
+    dpmn_mapping = {'dpmn_ratio': config['dpmn_ratio'],
+               'dpmn_implied': config['dpmn_implied']}
+
+    d1cell = getD1CellDefaults()
+    d1cell.update(dpmn_mapping)
+    d2cell = getD2CellDefaults()
+    d2cell.update(dpmn_mapping)
 
     D1STR = makePop("D1STR", [GABA,
                             [AMPA, 800, config['STRExtEff'],
-                            config['STRExtFreq']], NMDA], cd_pre, getD1CellDefaults())
+                            config['STRExtFreq']], NMDA], cd_pre, d1cell)
     D2STR = makePop("D2STR", [GABA,
                             [AMPA, 800, config['STRExtEff'],
-                            config['STRExtFreq']], NMDA], cd_pre, getD2CellDefaults())
+                            config['STRExtFreq']], NMDA], cd_pre, d2cell)
 
     camP(c, 'D1STR', 'D1STR', 'GABA', ['syn'], conProb['D1STR']['D1STR'], conEff['D1STR']['D1STR'])
     camP(c, 'D1STR', 'D2STR', 'GABA', ['syn'], conProb['D1STR']['D2STR'], conEff['D1STR']['D2STR'])
@@ -836,7 +854,7 @@ def mcInfo(**kwargs):
 
     hes = []
     houts = []
-    for i in range(0,5):
+    for i in range(0,20):
         hes.append(makeHandleEvent('reset', 0, 'sensory', [], config['BaseStim']))
         hes.append(makeHandleEvent('wrong stimulus', config['Start'], 'sensory', [], config['WrongStim']))
         hes.append(makeHandleEvent('right stimulus', config['Start'], 'sensory', [0], config['RightStim']))
@@ -845,6 +863,19 @@ def mcInfo(**kwargs):
         #hes.append(makeHandleEvent('dynamic cutoff', config['Start'], 'out', [1], config['Dynamic'], 'EndTrial', 2, 0.1)) #Right reward 0.1
         hes.append(makeHandleEvent('dynamic cutoff', config['Start'], 'out', [0], config['Dynamic'], 'EndTrial', 1, 0.7)) #Left reward 0.7
         hes.append(makeHandleEvent('dynamic cutoff', config['Start'], 'out', [1], config['Dynamic'], 'EndTrial', 2, 0.1)) #Right reward 0.1
+        hes.append(makeHandleEvent('time limit', config['Start']+800, etype='EndTrial'))
+
+        houts.append(makeHandleEvent('decision made', config['Start'], 'out', [], config['Dynamic'], 'EndTrial'))
+        houts.append(makeHandleEvent('decision made', config['Start']+800, etype='EndTrial'))
+    for i in range(0,0):
+        hes.append(makeHandleEvent('reset', 0, 'sensory', [], config['BaseStim']))
+        hes.append(makeHandleEvent('wrong stimulus', config['Start'], 'sensory', [], config['WrongStim']))
+        hes.append(makeHandleEvent('right stimulus', config['Start'], 'sensory', [0], config['RightStim']))
+        #hes.append(makeHandleEvent('hyperdirect', config['Start'], 'threshold', [], config['STNExtFreq']+.75))
+        #hes.append(makeHandleEvent('hyperdirect', config['Start'], 'threshold', [0], config['STNExtFreq']+.75))
+        #hes.append(makeHandleEvent('dynamic cutoff', config['Start'], 'out', [1], config['Dynamic'], 'EndTrial', 2, 0.1)) #Right reward 0.1
+        hes.append(makeHandleEvent('dynamic cutoff', config['Start'], 'out', [0], config['Dynamic'], 'EndTrial', 1, 0.1)) #Left reward 0.7
+        hes.append(makeHandleEvent('dynamic cutoff', config['Start'], 'out', [1], config['Dynamic'], 'EndTrial', 2, 0.7)) #Right reward 0.1
         hes.append(makeHandleEvent('time limit', config['Start']+800, etype='EndTrial'))
 
         houts.append(makeHandleEvent('decision made', config['Start'], 'out', [], config['Dynamic'], 'EndTrial'))
