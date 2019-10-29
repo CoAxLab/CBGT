@@ -1409,11 +1409,11 @@ int SimulateOneTimeStep() {
         tr = Pop[p].Cell[sourceneuron].Axonals[j].TargetReceptor;
 
         pathway_strength = Pop[p].Cell[sourceneuron].Axonals[j].Efficacy;
-        if (Pop[p].Cell[sourceneuron].dpmn_cortex > 0 && Pop[tp].Cell[tn].dpmn_type > 0 && (tr == AMPA)) { // Pop[p].Cell[sourceneuron].dpmn_cortex > 0 && Pop[tp].Cell[tn].dpmn_type > 0 &&
+        if (Pop[p].Cell[sourceneuron].dpmn_cortex > 0 && Pop[tp].Cell[tn].dpmn_type > 0 && tr == ReceptorCode("AMPA", tp)) { // Pop[p].Cell[sourceneuron].dpmn_cortex > 0 && Pop[tp].Cell[tn].dpmn_type > 0 &&
           pathway_strength = Pop[tp].Cell[tn].dpmn_w * Pop[tp].Cell[tn].dpmn_ratio / Pop[tp].Cell[tn].dpmn_implied;
         }
-        if (Pop[p].Cell[sourceneuron].dpmn_cortex > 0 && Pop[tp].Cell[tn].dpmn_type > 0 && (tr == NMDA)) { // Pop[p].Cell[sourceneuron].dpmn_cortex > 0 && Pop[tp].Cell[tn].dpmn_type > 0 &&
-          pathway_strength *= Pop[tp].Cell[tn].dpmn_w / Pop[tp].Cell[tn].dpmn_winit * (1 - Pop[tp].Cell[tn].dpmn_ratio);
+        if (Pop[p].Cell[sourceneuron].dpmn_cortex > 0 && Pop[tp].Cell[tn].dpmn_type > 0 && tr == ReceptorCode("NMDA", tp)) { // Pop[p].Cell[sourceneuron].dpmn_cortex > 0 && Pop[tp].Cell[tn].dpmn_type > 0 &&
+          pathway_strength *= (1 - Pop[tp].Cell[tn].dpmn_ratio); // * Pop[tp].Cell[tn].dpmn_w / Pop[tp].Cell[tn].dpmn_winit
         }
 
         //if (tr == NMDA) { // Pop[p].Cell[sourceneuron].dpmn_cortex > 0 &&
