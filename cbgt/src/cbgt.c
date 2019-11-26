@@ -1849,6 +1849,7 @@ int SaveSpikes(int eventflag) {
       if (meanfreqs[Cutoffs[CStage][co].PopNumber] > Cutoffs[CStage][co].FreqExt) {
         EndingEvent = Cutoffs[CStage][co];
         res = 0;
+        break; // maybe?
       }
     }
   }
@@ -2450,10 +2451,10 @@ int main(int argc, char *argv[])
       SaveQ2();
       SaveDpmn();
       SaveTraces();
-      SaveDC();
-      SaveNMDA();
-      SaveAMPA();
-      SaveGABA();
+      //SaveDC();
+      //SaveNMDA();
+      //SaveAMPA();
+      //SaveGABA();
 
       if (runflag == 0 && CStage < NStages - 1) {
         CStage++;
