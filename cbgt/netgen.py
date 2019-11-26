@@ -518,7 +518,7 @@ def getD1CellDefaults():
                 # not specific
                 'dpmn_tauDOP':2,         #2.0*10,  2*5
                  #'dpmn_taug':3.0,
-                'dpmn_alpha':0.05*10,
+                'dpmn_alpha':0.05*6,
                 'dpmn_DAt':0.0,              #0.2,
                 'dpmn_taum':4000.0*5,
                 # specific to D1
@@ -554,7 +554,7 @@ def getD2CellDefaults():
                 # not specific
                 'dpmn_tauDOP': 2,          #2.0*10,  2*5
                  #'dpmn_taug':3.0,
-                'dpmn_alpha':0.05*10,
+                'dpmn_alpha':0.05*6,
                 'dpmn_DAt':0,               #0.25,
                 'dpmn_taum':4000.0*5,         #4000.0*5,
                 # specific to D1
@@ -733,13 +733,21 @@ def describeBG(**kwargs):
     camP(c, 'LIP', 'FSI', 'AMPA', ['all'], conProb['Cx']['FSI'], conEff['Cx']['FSI'], name='cxfsi')
     camP(c, 'LIP', 'Th', ['AMPA', 'NMDA'], ['all'], conProb['Cx']['Th'], conEff['Cx']['Th'])
 
-    dpmn_mapping = {'dpmn_ratio': config['dpmn_ratio'],
-               'dpmn_implied': config['dpmn_implied']}
+    d1pmn_mapping = {'dpmn_ratio': config['dpmn_ratio'],
+               'dpmn_implied': config['dpmn_implied'],
+               'dpmn_alphaw': config['d1aw']
+               }
 
     d1cell = getD1CellDefaults()
-    d1cell.update(dpmn_mapping)
+    d1cell.update(d1pmn_mapping)
+
+    d2pmn_mapping = {'dpmn_ratio': config['dpmn_ratio'],
+           'dpmn_implied': config['dpmn_implied'],
+           'dpmn_alphaw': config['d2aw']
+           }
+
     d2cell = getD2CellDefaults()
-    d2cell.update(dpmn_mapping)
+    d2cell.update(d2pmn_mapping)
 
     D1STR = makePop("D1STR", [GABA,
                             [AMPA, 800, config['STRExtEff'],
@@ -852,33 +860,42 @@ def mcInfo(**kwargs):
     hts.append(makeHandle('threshold', 'STNE', ['choices'], 'AMPA', 800, 1.65))
     hts.append(makeHandle('out', 'Th', ['choices']))
 
+    random.seed(config['seed'] + int(config['d1aw']*100) + int(config['d2aw']*10000) + int(config['rewardprob']*1000000))
+
     hes = []
     houts = []
-    for i in range(0,20):
+    for i in range(0,40):
         hes.append(makeHandleEvent('reset', 0, 'sensory', [], config['BaseStim']))
         hes.append(makeHandleEvent('wrong stimulus', config['Start'], 'sensory', [], config['WrongStim']))
         hes.append(makeHandleEvent('right stimulus', config['Start'], 'sensory', [0], config['RightStim']))
         #hes.append(makeHandleEvent('hyperdirect', config['Start'], 'threshold', [], config['STNExtFreq']+.75))
         #hes.append(makeHandleEvent('hyperdirect', config['Start'], 'threshold', [0], config['STNExtFreq']+.75))
         #hes.append(makeHandleEvent('dynamic cutoff', config['Start'], 'out', [1], config['Dynamic'], 'EndTrial', 2, 0.1)) #Right reward 0.1
-        hes.append(makeHandleEvent('dynamic cutoff', config['Start'], 'out', [0], config['Dynamic'], 'EndTrial', 1, 1.0)) #Left reward 0.7
-        hes.append(makeHandleEvent('dynamic cutoff', config['Start'], 'out', [1], config['Dynamic'], 'EndTrial', 2, 0.0)) #Right reward 0.1
+        if random.uniform(0, 1) < config['rewardprob']:
+            if random.uniform(0, 1) < 0.5:
+                hes.append(makeHandleEvent('dynamic cutoff', config['Start'], 'out', [0], config['Dynamic'], 'EndTrial', 1, 1.0)) #Left reward 1.0
+                hes.append(makeHandleEvent('dynamic cutoff', config['Start'], 'out', [1], config['Dynamic'], 'EndTrial', 2, 0.0)) #Right reward 0.0
+                houts.append(makeHandleEvent('decision made', config['Start'], 'out', [0], config['Dynamic'], 'EndTrial'))
+                houts.append(makeHandleEvent('decision made', config['Start'], 'out', [1], config['Dynamic'], 'EndTrial'))
+            else:
+                hes.append(makeHandleEvent('dynamic cutoff', config['Start'], 'out', [1], config['Dynamic'], 'EndTrial', 2, 0.0)) #Right reward 0.0
+                hes.append(makeHandleEvent('dynamic cutoff', config['Start'], 'out', [0], config['Dynamic'], 'EndTrial', 1, 1.0)) #Left reward 1.0
+                houts.append(makeHandleEvent('decision made', config['Start'], 'out', [1], config['Dynamic'], 'EndTrial'))
+                houts.append(makeHandleEvent('decision made', config['Start'], 'out', [0], config['Dynamic'], 'EndTrial'))
+        else:
+            if random.uniform(0, 1) < 0.5:
+                hes.append(makeHandleEvent('dynamic cutoff', config['Start'], 'out', [0], config['Dynamic'], 'EndTrial', 1, 0.0)) #Left reward 0.0
+                hes.append(makeHandleEvent('dynamic cutoff', config['Start'], 'out', [1], config['Dynamic'], 'EndTrial', 2, 1.0)) #Right reward 1.0
+                houts.append(makeHandleEvent('decision made', config['Start'], 'out', [0], config['Dynamic'], 'EndTrial'))
+                houts.append(makeHandleEvent('decision made', config['Start'], 'out', [1], config['Dynamic'], 'EndTrial'))
+            else:
+                hes.append(makeHandleEvent('dynamic cutoff', config['Start'], 'out', [1], config['Dynamic'], 'EndTrial', 2, 1.0)) #Right reward 1.0
+                hes.append(makeHandleEvent('dynamic cutoff', config['Start'], 'out', [0], config['Dynamic'], 'EndTrial', 1, 0.0)) #Left reward 0.0
+                houts.append(makeHandleEvent('decision made', config['Start'], 'out', [1], config['Dynamic'], 'EndTrial'))
+                houts.append(makeHandleEvent('decision made', config['Start'], 'out', [0], config['Dynamic'], 'EndTrial'))
         hes.append(makeHandleEvent('time limit', config['Start']+800, etype='EndTrial'))
 
-        houts.append(makeHandleEvent('decision made', config['Start'], 'out', [], config['Dynamic'], 'EndTrial'))
-        houts.append(makeHandleEvent('decision made', config['Start']+800, etype='EndTrial'))
-    for i in range(0,30):
-        hes.append(makeHandleEvent('reset', 0, 'sensory', [], config['BaseStim']))
-        hes.append(makeHandleEvent('wrong stimulus', config['Start'], 'sensory', [], config['WrongStim']))
-        hes.append(makeHandleEvent('right stimulus', config['Start'], 'sensory', [0], config['RightStim']))
-        #hes.append(makeHandleEvent('hyperdirect', config['Start'], 'threshold', [], config['STNExtFreq']+.75))
-        #hes.append(makeHandleEvent('hyperdirect', config['Start'], 'threshold', [0], config['STNExtFreq']+.75))
-        #hes.append(makeHandleEvent('dynamic cutoff', config['Start'], 'out', [1], config['Dynamic'], 'EndTrial', 2, 0.1)) #Right reward 0.1
-        hes.append(makeHandleEvent('dynamic cutoff', config['Start'], 'out', [0], config['Dynamic'], 'EndTrial', 1, 0.0)) #Left reward 0.7
-        hes.append(makeHandleEvent('dynamic cutoff', config['Start'], 'out', [1], config['Dynamic'], 'EndTrial', 2, 1.0)) #Right reward 0.1
-        hes.append(makeHandleEvent('time limit', config['Start']+800, etype='EndTrial'))
 
-        houts.append(makeHandleEvent('decision made', config['Start'], 'out', [], config['Dynamic'], 'EndTrial'))
         houts.append(makeHandleEvent('decision made', config['Start']+800, etype='EndTrial'))
 
 
