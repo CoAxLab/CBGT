@@ -520,7 +520,7 @@ def getD1CellDefaults():
                  #'dpmn_taug':3.0,
                 'dpmn_alpha':0.05*6,
                 'dpmn_DAt':0.0,              #0.2,
-                'dpmn_taum':4000.0*5,
+                'dpmn_taum':0,#4000.0*5,
                 # specific to D1
                 'dpmn_type': 1,
                 'dpmn_alphaw': 55/3.0,          # 0.55
@@ -556,7 +556,7 @@ def getD2CellDefaults():
                  #'dpmn_taug':3.0,
                 'dpmn_alpha':0.05*6,
                 'dpmn_DAt':0,               #0.25,
-                'dpmn_taum':4000.0*5,         #4000.0*5,
+                'dpmn_taum':0,#4000.0*5,         #4000.0*5,
                 # specific to D1
                 'dpmn_type': 2,
                 'dpmn_alphaw': -45/3.0,     #-0.45
@@ -864,14 +864,15 @@ def mcInfo(**kwargs):
 
     hes = []
     houts = []
-    for i in range(0,40):
+    for i in range(0,50):
         hes.append(makeHandleEvent('reset', 0, 'sensory', [], config['BaseStim']))
         hes.append(makeHandleEvent('wrong stimulus', config['Start'], 'sensory', [], config['WrongStim']))
         hes.append(makeHandleEvent('right stimulus', config['Start'], 'sensory', [0], config['RightStim']))
         #hes.append(makeHandleEvent('hyperdirect', config['Start'], 'threshold', [], config['STNExtFreq']+.75))
         #hes.append(makeHandleEvent('hyperdirect', config['Start'], 'threshold', [0], config['STNExtFreq']+.75))
         #hes.append(makeHandleEvent('dynamic cutoff', config['Start'], 'out', [1], config['Dynamic'], 'EndTrial', 2, 0.1)) #Right reward 0.1
-        if random.uniform(0, 1) < config['rewardprob']:
+        #if random.uniform(0, 1) < config['rewardprob']:
+        if i < 20:
             if random.uniform(0, 1) < 0.5:
                 hes.append(makeHandleEvent('dynamic cutoff', config['Start'], 'out', [0], config['Dynamic'], 'EndTrial', 1, 1.0)) #Left reward 1.0
                 hes.append(makeHandleEvent('dynamic cutoff', config['Start'], 'out', [1], config['Dynamic'], 'EndTrial', 2, 0.0)) #Right reward 0.0
