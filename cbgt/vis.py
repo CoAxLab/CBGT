@@ -256,8 +256,8 @@ def plot_spikes(df, start=200, nchoices=2, clrs=['#1e1e1e', '#f5191c']):
             ax.plot(x, y, color=clr, label=choicelabel, linewidth=2.25)
             ax.set_title(label)
             ymax[ii].append(np.nanmax(y))
-            if axes[ii].is_last_row():
-                axes[ii].set_xlabel('Time (ms)')
+            # if axes[ii].is_last_row():
+            axes[ii].set_xlabel('Time (ms)')
     upper = [np.nanmax(ym)*1.08 for ym in ymax]
     for i, ymax in enumerate(upper):
         axes[i].set_ylim(0, ymax)
