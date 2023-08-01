@@ -290,9 +290,9 @@ def plot_trial_rates(t=0, cond='test', window=None):
             title = titles[i]
             ax.set_title(title)
             ax.set_xticks(xticks)
-            if ax.is_last_row():
-                ax.set_xticks(xticks)
-                ax.set_xticklabels(xticks)
+            # if ax.is_last_row():
+            #     ax.set_xticks(xticks)
+            #     ax.set_xticklabels(xticks)
         plt.tight_layout()
 
 
