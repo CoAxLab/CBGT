@@ -257,15 +257,15 @@ def plot_spikes(df, start=200, nchoices=2, clrs=['#1e1e1e', '#f5191c']):
             ax.set_title(label)
             ymax[ii].append(np.nanmax(y))
             # if axes[ii].is_last_row():
-            axes[ii].set_xlabel('Time (ms)')
+            # axes[ii].set_xlabel('Time (ms)')
     upper = [np.nanmax(ym)*1.08 for ym in ymax]
     for i, ymax in enumerate(upper):
         axes[i].set_ylim(0, ymax)
         if pops[i] == 'LIP':
             axes[i].legend(loc=2)
-        if axes[i].is_first_col():
-            axes[i].set_ylabel('Firing Rate (Hz)')
-    plt.tight_layout()
+    #     if axes[i].is_first_col():
+    #         axes[i].set_ylabel('Firing Rate (Hz)')
+    # plt.tight_layout()
     sns.despine()
     return f
 
